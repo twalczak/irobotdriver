@@ -1,3 +1,5 @@
+// TESTING GIT TOMASZ WALCZAK
+
 #include <iostream>
 #include <string.h>
 #include <libplayercore/playercore.h>
