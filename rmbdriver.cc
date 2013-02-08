@@ -1,5 +1,14 @@
 /*
-	Project:  Senior Design Team 161 | Spring 2013
+    Custom iRobot Create plugin for Player/Stage v3.0+
+    Controls:   iRobot Create
+                Ultrasonic Sensors
+                Stargazer navigation system
+                Sony camera
+
+    Project:    Swarm Robotics - Senior Design Team 161
+    School:     University of Connecticut
+    Engineer:   Tomasz Walczak
+    Date:       04 Feb 2013
 */
 
 #include <iostream>
@@ -23,26 +32,27 @@
 	#include <unistd.h>
 #endif
 
-
-
 using namespace std;
 
 class rmbDriver : public ThreadedDriver {
 public:
 	rmbDriver(ConfigFile *cf, int section);
 	virtual int ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void* data);
-    int fd;
 private:
     int serialport_init(const char* serialport, int baud);
     int serialport_writebyte( int fd, uint8_t b);
 	virtual void Main();
 	virtual int MainSetup();
 	virtual void MainQuit();
+    
+    int fd;
 	int testVar;
+
 	player_devaddr_t positionID;
     player_devaddr_t sonarID;
     player_devaddr_t laserID;
 };
+
 Driver* rmbDriver_Init(ConfigFile* cf, int section) {		// Return driver instance to Player
 	return( (Driver*)(new rmbDriver(cf, section)) );	
 }
@@ -51,9 +61,8 @@ void rmbDriver_Register(DriverTable* table) {			// Register driver with Player
 	table->AddDriver("rmbdriver", rmbDriver_Init);
 }
 
-rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, false, PLAYER_MSGQUEUE_DEFAULT_MAXLEN/*, PLAYER_POSITION2D_CODE*/) {
+rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, false, PLAYER_MSGQUEUE_DEFAULT_MAXLEN) {
 
-    // Check if the configuration file asks us to provide a Limb interface
     if(cf->ReadDeviceAddr(&positionID, section, "provides", PLAYER_POSITION2D_CODE, -1, NULL) == 0)
     {
         // If the interface failed to correctly register
@@ -66,7 +75,6 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
         }
     }
     
-    // Check if the configuration file asks us to provide a Limb interface
     if(cf->ReadDeviceAddr(&sonarID, section, "provides", PLAYER_SONAR_CODE, -1, NULL) == 0)
     {
         // If the interface failed to correctly register
@@ -81,7 +89,6 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
         cout << "No sonar\n";
     }
     
-        // Check if the configuration file asks us to provide a Limb interface
     if(cf->ReadDeviceAddr(&laserID, section, "provides", PLAYER_LASER_CODE, -1, NULL) == 0)
     {
         // If the interface failed to correctly register
@@ -97,22 +104,25 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
     }
 
 	this->testVar = cf->ReadInt(section, "testVar", 0); // Read variable in .cfg file
-	//return 
-	
+	return; 
 }
 
 int rmbDriver::MainSetup() {
 	cout << "---> Main Setup Request <---\n";
     int baudrate = B57600;  // default
     fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
-        if(fd==-1) return -1;
-    serialport_writebyte(fd,128);
+    if(fd==-1) {
+        PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
+        return -1;
+    }
+    serialport_writebyte(fd,128);   // TODO: Define opcodes in header
     serialport_writebyte(fd,130);
 	return 0;
 }
 
 void rmbDriver::MainQuit() {
 	cout << "---> Player Quit Request <---\n";
+    // TODO: Close gracefuly
 }
 
 int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void * data) {
@@ -175,20 +185,21 @@ int rmbDriver::serialport_init(const char* serialport, int baud)
     struct termios toptions;
     int fd;
     
-    //fprintf(stderr,"init_serialport: opening port %s @ %d bps\n",
-    //        serialport,baud);
-
+    // Open port
     fd = open(serialport, O_RDWR | O_NOCTTY | O_NDELAY);
     if (fd == -1)  {
         perror("init_serialport: Unable to open port ");
         return -1;
     }
     
+    // Read current termios settings
     if (tcgetattr(fd, &toptions) < 0) {
         perror("init_serialport: Couldn't get term attributes");
         return -1;
     }
-    speed_t brate = baud; // let you override switch below if needed
+
+    // Set baud rate variable
+    speed_t brate = baud;
     switch(baud) {
     case 4800:   brate=B4800;   break;
     case 9600:   brate=B9600;   break;
@@ -206,24 +217,25 @@ int rmbDriver::serialport_init(const char* serialport, int baud)
     cfsetispeed(&toptions, brate);
     cfsetospeed(&toptions, brate);
 
-    // 8N1
+    // Setup termios for 8N1
     toptions.c_cflag &= ~PARENB;
     toptions.c_cflag &= ~CSTOPB;
     toptions.c_cflag &= ~CSIZE;
     toptions.c_cflag |= CS8;
-    // no flow control
-    toptions.c_cflag &= ~CRTSCTS;
 
-    toptions.c_cflag |= CREAD | CLOCAL;  // turn on READ & ignore ctrl lines
+    // Reccomended settings
+    toptions.c_cflag &= ~CRTSCTS;   // no flow control
+    toptions.c_cflag |= CREAD | CLOCAL;  // turn on read & ignore ctrl lines
     toptions.c_iflag &= ~(IXON | IXOFF | IXANY); // turn off s/w flow ctrl
-
     toptions.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // make raw
     toptions.c_oflag &= ~OPOST; // make raw
 
-    // see: http://unixwiz.net/techtips/termios-vmin-vtime.html
+    // Setting when read() releases
+    // see: http://unixwiz.net/techtips/termios-vmin-vtime.html (Still a little confusing)
     toptions.c_cc[VMIN]  = 0;
     toptions.c_cc[VTIME] = 20;
     
+    // Apply settings
     if( tcsetattr(fd, TCSANOW, &toptions) < 0) {
         perror("init_serialport: Couldn't set term attributes");
         return -1;
