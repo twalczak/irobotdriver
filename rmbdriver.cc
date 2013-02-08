@@ -1,4 +1,6 @@
-// TESTING GIT TOMASZ WALCZAK
+/*
+	Project:  Senior Design Team 161 | Spring 2013
+*/
 
 #include <iostream>
 #include <string.h>
