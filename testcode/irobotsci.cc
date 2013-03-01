@@ -16,128 +16,79 @@
 #include <sys/ioctl.h>
 #include <getopt.h>
 
-#define READT 0
-#define READS 1
-#define	READH 2
-#define READL 3
-#define IDLE 5
-#define streamsize 20
+
 
 using namespace std;
 
-int fdd;
-uint8_t packet[4];
-uint8_t pstream[streamsize];
-uint16_t sensors[8];
+int fd_global;
 int serialport_init(const char* serialport, int baud);
-int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors);
-int parse_packet(uint8_t* packet,uint16_t* sensors);
-void draw_screen(uint8_t* packet,uint16_t* sensors);
+int serialport_read_until(int fd);
+int fpeek(int stream);
+
 
 void* screen_thread(void* arg) {
-	while(1) {
-		draw_screen(pstream,sensors);
-		usleep(1*1000);
-	}
+    while(1) {
+    }
 }
 
-double adcdata2m(int adc){
-	double m;
-	m = adc*0.00049837;	// ((adc/4095)/0.0049)/100
-					//adc/4095 -> volts    /0.0049 -> cm   /100 -> m
-	return m;
-}
+
 
 int main(void) {
 
-	pthread_t screen_thread_id;
-	int flags;
-	int baudrate = B2400;  // default
-    	fdd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
-    	if(fdd==-1) {
-    		cout << "Open port: error\n";
-        	return -1;
-        }
+    pthread_t screen_thread_id;
+    int flags;
+    int baudrate = B9600;  // default
+    fd_global = serialport_init((char*)"/dev/ttyUSB0", baudrate);
+    if(fd_global==-1) {
+        cout << "Open port: error\n";
+        return -1;
+    }
         
         
- 	if (-1 == (flags = fcntl(fdd, F_GETFL, 0)))
- 	       flags = 0;
-    	fcntl(fdd, F_SETFL, flags | O_NONBLOCK);
+    if (-1 == (flags = fcntl(fd_global, F_GETFL, 0))) flags = 0;
+    fcntl(fd_global, F_SETFL, flags | O_NONBLOCK);
         
-        pthread_create(&screen_thread_id, NULL, screen_thread, (void*)NULL);
-        
-         char* buffer;
-	serialport_read_until(fdd,buffer, 'i', sensors);
-	return 0;
-}
-
-int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors)
-{
-    char b[1];
-    uint8_t bb;
-    int state = 0;
-    int c=0;
-    uint16_t data=0;
-    uint8_t dh,dl;
-    int error = 0;
-    int noread = 0;
-    do { 
-        int n = read(fd, b, 1);  //Read byte at a time
-        if(n==-1) { 
-        	//printf("Global Error: %d ", errno); fflush(stdout);
-        	//perror(strerror(errno));
-         }
-        else if( n==0 ) {
-        	//No data available, yet... Hurry up Mike
-            	//usleep( 10 * 1000 ); // wait 10 msec try again
-            	continue;
-        } else if(n>0) {
-        	//Reset error counts
-		noread = 0;
-		error  = 0;
-		
-		//Shift in byte
-		for(int i=3; i>0;i--) packet[i]=packet[i-1];
-		*packet = 0xFF & *b;
-		
-		for(int i=(streamsize-1); i>0;i--) pstream[i]=pstream[i-1];
-		*pstream = 0xFF & *b;
-		
-		//Parse data packet
-		parse_packet(packet, sensors);
-
-        }
-    } while(1);
-
-
+    //pthread_create(&screen_thread_id, NULL, screen_thread, (void*)NULL);    
+    
+    serialport_read_until(fd_global);
     return 0;
 }
 
-int parse_packet(uint8_t* packet,uint16_t* sensors) {
-	uint16_t high_byte = packet[0];
-	uint16_t  low_byte = packet[1];
-	uint16_t payload = (0xFF00 & (high_byte << 8)) | (0x00FF & low_byte);
-	
-	if(  packet[3] == 'T' &&
-	    (packet[2] >= '0' && packet[2] <= '9') &&
-	      (payload >=  0  &&  payload  <= 4095) ) {
-		sensors[packet[2]-0x30] = payload;
-	       	return 0;
-	} else {
-		return -1;
-	}
+int serialport_read_until(int fd)
+{
+    char b[1];
+
+
+    while(1) { 
+        int n = read(fd, b, 1);  //Read byte at a time
+        int n2= fpeek(fd);
+        printf("p:%d",n2);
+        if(n==-1) { 
+            printf("N");fflush(stdout);
+         }
+        else if( n==0 ) {
+            printf("Z");fflush(stdout);
+        } else if(n>0) {
+
+            printf(":%d:",n);fflush(stdout);
+
+
+        }
+        usleep(100*1000);
+    }
+    return 0;
 }
 
-void draw_screen(uint8_t* packet,uint16_t* sensors) {
-	
-	printf("\033[1JDATA STREAM: ");
-	for(int i=0; i<streamsize; i++)
-		printf("%x ", packet[i]);
-	printf("\n");
-	for(int i=0; i<8; i++) {
-		printf("sensor %i: %f Meters\n", i, adcdata2m(sensors[i]));
-	}
+int fpeek(int stream)
+{
+    int c;
+
+    c = fgetc(stream);
+    ungetc(c, stream);
+
+    return c;
 }
+
 
 
 int serialport_init(const char* serialport, int baud)

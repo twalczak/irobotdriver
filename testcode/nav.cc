@@ -53,7 +53,7 @@ int main(void) {
 
 	pthread_t screen_thread_id;
 	int flags;
-	int baudrate = B115200;  // default
+	int baudrate = B9600;  // default
     	fdd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
     	if(fdd==-1) {
     		cout << "Open port: error\n";
@@ -107,7 +107,7 @@ int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors)
         	//Reset error counts
 		noread = 0;
 		error  = 0;
-		//printf("TEST: %c\n",*b);
+		printf("TEST: %c\n",*b);
 		//Shift in byte
 
         if(*b=='~' || count>(packetsize-2)) {
