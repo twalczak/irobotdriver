@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <math.h>
 #include <signal.h>
 #include <stdint.h>   /* Standard types */
 #include <fcntl.h>    /* File control definitions */
@@ -30,17 +31,21 @@
 #include <getopt.h>
 #define streamsize 20
 #define packetsize 40
+#define CREATE_TVEL_MAX_MM_S           500     
+#define CREATE_RADIUS_MAX_MM          2000
+    #define CREATE_AXLE_LENGTH            0.258
 #if !defined (WIN32)
 	#include <unistd.h>
 #endif
 
 using namespace std;
-
+bool running;
 char packetn[packetsize];
 uint8_t packet[4];
 int fdd, nav_fd;
 uint8_t pstream[streamsize];
 uint16_t sensors[8];
+pthread_t nav_thread_id;
 double nav_pos[5];
 void draw_screen(uint8_t* packet,uint16_t* sensors);
 double adcdata2m(int adc);
@@ -163,6 +168,7 @@ void* rmbDriver::nav_thread(void* arg) {
         count++;
 
         }
+        if(!running) pthread_exit(&nav_thread_id);
     } while(1);
 
 
@@ -220,7 +226,7 @@ int rmbDriver::MainSetup() {
 	cout << "---> Main Setup Request <---\n";
 	
     int baudrate = B57600;  // default
-    fd = serialport_init((char*)"/dev/ttyUSB1", baudrate);
+    fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
     if(fd==-1) {
         PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
         //return -1; 
@@ -229,26 +235,28 @@ int rmbDriver::MainSetup() {
     	rmbOPEN = 1;
     }
 	serialport_writebyte(fd,128);   // TODO: Define opcodes in header
-	serialport_writebyte(fd,130);
+	serialport_writebyte(fd,132); usleep(50*1000);
+	//serialport_writebyte(fd,131); usleep(50*1000);
+	//serialport_writebyte(fd,132);
 	
 	//START
 	pthread_t screen_thread_id;
-	pthread_t nav_thread_id;
+	
 
 
 	baudrate = B115200; //NAVIGATION
-    nav_fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
+    nav_fd = serialport_init((char*)"/dev/ttyUSB1", baudrate);
     if(nav_fd==-1) {
         PLAYER_ERROR("NAVIGATION PORT FAILED");
         return -1; 
     }
-
+    running = true;
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
 
 
 	int flags;
 	baudrate = B2400;  // default
-    	fdd = serialport_init((char*)"/dev/ttyUSB1", baudrate);
+    	fdd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
     	/*if(fdd==-1) {
     		cout << "Open port: error\n";
         	return -1;
@@ -269,6 +277,8 @@ int rmbDriver::MainSetup() {
 
 void rmbDriver::MainQuit() {
 	cout << "---> Player Quit Request <---\n";
+	running = false;
+	//pthread_terminate(nav_thread_id);
 	close(fd);
     // TODO: Close gracefuly
 }
@@ -354,14 +364,47 @@ int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void
 		player_position2d_cmd_vel_t* vel_cmd = (player_position2d_cmd_vel_t*) data;
 		player_pose2d_t pose_data = vel_cmd->vel;
 		
-		int16_t vel = pose_data.px * 500;
-		int16_t deg = (pose_data.pa < 0.1 && pose_data.pa > -0.1) ? 32768 : 
-			      (pose_data.pa < 0) ? (-1-pose_data.pa) * 2000 : (1-pose_data.pa) * 2000 ;
-		
-		uint8_t vel_h = (vel & 0xFF00) >> 8;
-		uint8_t vel_l = (vel & 0x00FF);
-		uint8_t deg_h = (deg & 0xFF00) >> 8;
-		uint8_t deg_l = (deg & 0x00FF);
+		double tv = pose_data.px;
+		double rv = pose_data.pa;
+/*--------- START COPYnPASTE*/
+  int16_t tv_mm, rad_mm;
+
+  //printf("tv: %.3lf rv: %.3lf\n", tv, rv);
+
+  tv_mm = (int16_t)rint(tv * 1e3);
+  tv_mm = MAX(tv_mm, -CREATE_TVEL_MAX_MM_S);
+  tv_mm = MIN(tv_mm, CREATE_TVEL_MAX_MM_S);
+
+  if(rv == 0)
+  {
+    // Special case: drive straight
+    rad_mm = 0x8000;
+  }
+  else if(tv == 0)
+  {
+    // Special cases: turn in place
+    if(rv > 0)
+      rad_mm = 1;
+    else
+      rad_mm = -1;
+
+    tv_mm = (int16_t)rint(CREATE_AXLE_LENGTH * fabs(rv) * 1e3);
+  }
+  else
+  {
+    // General case: convert rv to turn radius
+    rad_mm = (int16_t)rint(tv_mm / rv);
+    // The robot seems to turn very slowly with the above
+    //rad_mm /= 2;
+    //printf("real rad_mm: %d\n", rad_mm);
+    rad_mm = MAX(rad_mm, -CREATE_RADIUS_MAX_MM);
+    rad_mm = MIN(rad_mm, CREATE_RADIUS_MAX_MM);
+  }
+		uint8_t vel_h = (tv_mm & 0xFF00) >> 8;
+		uint8_t vel_l = (tv_mm & 0x00FF);
+		uint8_t deg_h = (rad_mm & 0xFF00) >> 8;
+		uint8_t deg_l = (rad_mm & 0x00FF);
+/*------------------*/
         serialport_writebyte(fd,137);
         serialport_writebyte(fd,vel_h);
         serialport_writebyte(fd,vel_l);
