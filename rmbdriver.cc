@@ -14,7 +14,6 @@
 #include <iostream>
 #include <string.h>
 #include <libplayercore/playercore.h>
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -29,14 +28,15 @@
 #include <termios.h>  /* POSIX terminal control definitions */
 #include <sys/ioctl.h>
 #include <getopt.h>
+#if !defined (WIN32)
+    #include <unistd.h>
+#endif
+
 #define streamsize 20
 #define packetsize 40
-#define CREATE_TVEL_MAX_MM_S           500     
-#define CREATE_RADIUS_MAX_MM          2000
-    #define CREATE_AXLE_LENGTH            0.258
-#if !defined (WIN32)
-	#include <unistd.h>
-#endif
+#define CREATE_TVEL_MAX_MM_S        500     
+#define CREATE_RADIUS_MAX_MM        2000
+#define CREATE_AXLE_LENGTH          0.258
 
 using namespace std;
 bool running;
@@ -56,7 +56,6 @@ class rmbDriver : public ThreadedDriver {
 public:
 	rmbDriver(ConfigFile *cf, int section);
 	virtual int ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void* data);
-	
 	static void* screen_thread(void* arg);
 	static void* nav_thread(void* arg);
 	
@@ -65,23 +64,14 @@ private:
     int serialport_writebyte( int fd, uint8_t b);
     int serialport_writebyte( int fd, uint8_t b, uint8_t sonic);
     double adcdata2m(int adc);
-    
-
-
-int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors);
-int parse_packet(uint8_t* packet,uint16_t* sensors);
-
-
-
-    
+    int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors);
+    int parse_packet(uint8_t* packet,uint16_t* sensors);
     uint8_t rmbOPEN;
 	virtual void Main();
 	virtual int MainSetup();
 	virtual void MainQuit();
-    
     int fd;
 	int testVar;
-
 	player_devaddr_t positionID;
     player_devaddr_t sonarID;
     player_devaddr_t laserID;
@@ -97,11 +87,9 @@ void rmbDriver_Register(DriverTable* table) {			// Register driver with Player
 
 void* rmbDriver::screen_thread(void* arg) {
 	char* buffer;
-		while(1) {
-		//draw_screen(pstream,sensors);
-		//usleep(1*1000);
+	while(1) {
 		serialport_read_until2(fdd,buffer, 'i', sensors);
-		}
+	}
 }
 
 void* rmbDriver::nav_thread(void* arg) {
@@ -603,7 +591,7 @@ int rmbDriver::serialport_read_until(int fd, char* buf, char until, uint16_t* se
 int rmbDriver::parse_packet(uint8_t* packet,uint16_t* sensors) {
 	uint16_t high_byte = packet[0];
 	uint16_t  low_byte = packet[1];
-	uint16_t payload = (0xFF00 & (high_byte << 8)) | (0x00FF & low_byte);
+	uint16_t   payload = (0xFF00 & (high_byte << 8)) | (0x00FF & low_byte);
 	
 	if(  packet[3] == 'T' &&
 	    (packet[2] >= '0' && packet[2] <= '9') &&
