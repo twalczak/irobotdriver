@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string.h>
 #include <cstdio>
+#include <fstream>
 
 #include <sys/types.h>
 #include <pthread.h>
@@ -21,9 +22,11 @@
 using namespace std;
 
 int fd_global;
+FILE* fp_global;
 int serialport_init(const char* serialport, int baud);
 int serialport_read_until(int fd);
-int fpeek(int stream);
+int fpeek(FILE* stream);
+bool fexists(const char *filename);
 
 
 void* screen_thread(void* arg) {
@@ -43,7 +46,9 @@ int main(void) {
         cout << "Open port: error\n";
         return -1;
     }
-        
+
+    fp_global = fdopen(fd_global, "r");
+    
         
     if (-1 == (flags = fcntl(fd_global, F_GETFL, 0))) flags = 0;
     fcntl(fd_global, F_SETFL, flags | O_NONBLOCK);
@@ -57,14 +62,11 @@ int main(void) {
 int serialport_read_until(int fd)
 {
     char b[1];
-
-
     while(1) { 
         int n = read(fd, b, 1);  //Read byte at a time
-        int n2= fpeek(fd);
-        printf("p:%d",n2);
         if(n==-1) { 
             printf("N");fflush(stdout);
+            perror("READ: ");
          }
         else if( n==0 ) {
             printf("Z");fflush(stdout);
@@ -75,18 +77,20 @@ int serialport_read_until(int fd)
 
         }
         usleep(100*1000);
+
+            if (fexists("/dev/ttyUSB0")) 
+                printf("CONNECTED\n");
+            else
+                printf("NOT CONNECTED\n");
+
     }
     return 0;
 }
 
-int fpeek(int stream)
+bool fexists(const char *filename)
 {
-    int c;
-
-    c = fgetc(stream);
-    ungetc(c, stream);
-
-    return c;
+  ifstream ifile(filename);
+  return ifile;
 }
 
 
