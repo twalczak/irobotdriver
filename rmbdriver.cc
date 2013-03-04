@@ -10,7 +10,6 @@
     Engineer:   Tomasz Walczak
     Date:       04 Feb 2013
 */
-
 #include <iostream>
 #include <string.h>
 #include <libplayercore/playercore.h>
@@ -35,42 +34,35 @@
 /* -------------------------------------------------------------- */
 #include "serial.h"
 #include "rmbdriver.h"
-
+#include "irobot.h"
 #define streamsize 20
 #define packetsize 40
-#define CREATE_TVEL_MAX_MM_S        500     
-#define CREATE_RADIUS_MAX_MM        2000
-#define CREATE_AXLE_LENGTH          0.258
 
 using namespace std;
-bool running;
 char packetn[packetsize];
 uint8_t packet[4];
 int fdd, nav_fd;
 uint8_t pstream[streamsize];
 uint16_t sensors[8];
 pthread_t nav_thread_id;
+pthread_t irobot_control_thread_id;
 double nav_pos[5];
 void draw_screen(uint8_t* packet,uint16_t* sensors);
 double adcdata2m(int adc);
 int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors);
 int parse_packet2(uint8_t* packet,uint16_t* sensors);
 
-
-
-
 void* rmbDriver::screen_thread(void* arg) {
 	char* buffer;
 	while(1) {
 		serialport_read_until2(fdd,buffer, 'i', sensors);
 	}
-
 }
 
 void* rmbDriver::irobot_control_thread(void* arg) {
     while(client_connected) {
-        if(!irobot_responding())
-            irobot_init();
+        //if(!irobot_responding())
+        //    irobot_init();
         irobot_setspeed(dvdt_global, drdt_global);
         mdelay(100); // ms
     }
@@ -141,7 +133,7 @@ void* rmbDriver::nav_thread(void* arg) {
         count++;
 
         }
-        if(!running) pthread_exit(&nav_thread_id);
+        if(!client_connected) pthread_exit(&nav_thread_id);
     } while(1);
 
 
@@ -188,10 +180,7 @@ int rmbDriver::MainSetup() {
     fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
     if(fd==-1) {
         PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
-        //return -1; 
-        rmbOPEN = 0;
-    } else {
-    	rmbOPEN = 1;
+        return -1; 
     }
 
     baudrate = B115200; // LOCALIZATION SYSTEM
@@ -201,7 +190,7 @@ int rmbDriver::MainSetup() {
         return -1; 
     }
 
-    baudrate = B2400;  // ULTRA-SONIC SENSORS
+    baudrate = B9600;  // ULTRA-SONIC SENSORS
     fdd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
     if(fdd==-1) {
         cout << "Open port: error\n";
@@ -211,17 +200,16 @@ int rmbDriver::MainSetup() {
     client_connected = true;
 
 	serialport_writebyte(fd,128);   // TODO: Define opcodes in header
-	serialport_writebyte(fd,132); usleep(50*1000);
-	//serialport_writebyte(fd,131); usleep(50*1000);
-	//serialport_writebyte(fd,132);
+	mdelay(100);
+	serialport_writebyte(fd,130);
+	mdelay(100);
+	serialport_writebyte(fd,131); 
+	mdelay(100);
+	serialport_writebyte(fd,132); 
 	
 
 	pthread_t screen_thread_id;
 	
-
-
-
-    running = true;
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
 
 
@@ -244,12 +232,11 @@ int rmbDriver::MainSetup() {
 void rmbDriver::MainQuit() {
     // TODO: Close gracefuly
     client_connected = false; // <---- Indicates to all threads that we should quit and free memory
-	running = false; // DELETE THIS
 	close(fd);
 }
 
 int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void * data) {
-	printf("---> Message Received <---\n        TYPE: %d SUBTYPE: %d SIZE: %d\n", hdr->type, hdr->subtype, hdr->size);
+	//printf("---> Message Received <---\n        TYPE: %d SUBTYPE: %d SIZE: %d\n", hdr->type, hdr->subtype, hdr->size);
 	
 	if(Message::MatchMessage(hdr,PLAYER_MSGTYPE_REQ, PLAYER_SONAR_REQ_GET_GEOM, this->sonarID)) {
 		cout << "They want geometry D:\n";
@@ -328,58 +315,10 @@ int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void
 	{
 		player_position2d_cmd_vel_t* vel_cmd = (player_position2d_cmd_vel_t*) data;
 		player_pose2d_t pose_data = vel_cmd->vel;
-		
-		double tv = pose_data.px;
-		double rv = pose_data.pa;
-/*--------- START COPYnPASTE*/
-  int16_t tv_mm, rad_mm;
-
-  //printf("tv: %.3lf rv: %.3lf\n", tv, rv);
-
-  tv_mm = (int16_t)rint(tv * 1e3);
-  tv_mm = MAX(tv_mm, -CREATE_TVEL_MAX_MM_S);
-  tv_mm = MIN(tv_mm, CREATE_TVEL_MAX_MM_S);
-
-  if(rv == 0)
-  {
-    // Special case: drive straight
-    rad_mm = 0x8000;
-  }
-  else if(tv == 0)
-  {
-    // Special cases: turn in place
-    if(rv > 0)
-      rad_mm = 1;
-    else
-      rad_mm = -1;
-
-    tv_mm = (int16_t)rint(CREATE_AXLE_LENGTH * fabs(rv) * 1e3);
-  }
-  else
-  {
-    // General case: convert rv to turn radius
-    rad_mm = (int16_t)rint(tv_mm / rv);
-    // The robot seems to turn very slowly with the above
-    //rad_mm /= 2;
-    //printf("real rad_mm: %d\n", rad_mm);
-    rad_mm = MAX(rad_mm, -CREATE_RADIUS_MAX_MM);
-    rad_mm = MIN(rad_mm, CREATE_RADIUS_MAX_MM);
-  }
-		uint8_t vel_h = (tv_mm & 0xFF00) >> 8;
-		uint8_t vel_l = (tv_mm & 0x00FF);
-		uint8_t deg_h = (rad_mm & 0xFF00) >> 8;
-		uint8_t deg_l = (rad_mm & 0x00FF);
-/*------------------*/
-        serialport_writebyte(fd,137);
-        serialport_writebyte(fd,vel_h);
-        serialport_writebyte(fd,vel_l);
-        serialport_writebyte(fd,deg_h);
-        serialport_writebyte(fd,deg_l);
-		printf("        VEL: %x %x\n", vel_h, vel_l);
-        printf("        DEG: %x %x\n", deg_h, deg_l);
+		dvdt_global = pose_data.px;		//UPDATE GLOBALS
+		drdt_global = pose_data.pa;
 		return 0;
 	}
-	
 	return -1;
 }
 
@@ -406,23 +345,15 @@ void rmbDriver::Main() {
 		message_data.stall = 0;
 		this->Publish(this->positionID, PLAYER_MSGTYPE_DATA, PLAYER_POSITION2D_DATA_STATE,(void*)&message_data);
 
-		     player_sonar_data_t irdata;
-		     memset(&irdata,0,sizeof(irdata));
-
-		     irdata.ranges_count = 8;
-		     irdata.ranges = new float [irdata.ranges_count];
-		     for(int i=0; i<8; i++)
-		     	irdata.ranges[i] = (float)adcdata2m(sensors[i]);
-
-
-		     this->Publish(this->sonarID,
-			 PLAYER_MSGTYPE_DATA, PLAYER_SONAR_DATA_RANGES,
-			 (void*)&irdata);
-		     delete [] irdata.ranges;
-		     
-
-		
-		
+	    player_sonar_data_t irdata;
+	    memset(&irdata,0,sizeof(irdata));
+	    irdata.ranges_count = 8;
+	    irdata.ranges = new float [irdata.ranges_count];
+	    for(int i=0; i<8; i++)
+	     	irdata.ranges[i] = (float)adcdata2m(sensors[i]);
+	    this->Publish(this->sonarID,PLAYER_MSGTYPE_DATA, PLAYER_SONAR_DATA_RANGES,(void*)&irdata);
+	    delete [] irdata.ranges;
+		    
 		usleep(100);			// Sleep thread
 	}
 }
@@ -441,31 +372,19 @@ void rmbDriver::Main() {
 
 
 
-int rmbDriver::serialport_writebyte( int fd, uint8_t b)
+/*int rmbDriver::serialport_writebyte( int fd, uint8_t b)
 {
-	if(rmbOPEN) {
-		int n = write(fd,&b,1);
-		if( n!=1)
-			return -1;
-		return 0;
-	} else {
-		cout << "---> CREATE DOESN'T EXIST D:<---\n";
-		return 0;
-	}
-}
+	int n = write(fd,&b,1);
+	if( n!=1)
+		return -1;
+	return 0;
+}*/
 
-int rmbDriver::serialport_writebyte( int fd, uint8_t b, uint8_t sonic)
-{
-    int n = write(fd,&b,1);
-    if( n!=1)
-        return -1;
-    return 0;
-}
 
 
 
 /////////////////////////////////////
-int rmbDriver::serialport_read_until(int fd, char* buf, char until, uint16_t* sensors)
+/*int rmbDriver::serialport_read_until(int fd, char* buf, char until, uint16_t* sensors)
 {
     char b[1];
     uint8_t bb;
@@ -520,7 +439,7 @@ int rmbDriver::parse_packet(uint8_t* packet,uint16_t* sensors) {
 	} else {
 		return -1;
 	}
-}
+}*/
 
 
 
@@ -539,16 +458,6 @@ int parse_packet2(uint8_t* packet,uint16_t* sensors) {
 	}
 }
 
-void draw_screen(uint8_t* packet,uint16_t* sensors) {
-	
-	printf("\033[1JDATA STREAM: ");
-	for(int i=0; i<streamsize; i++)
-		printf("%x ", packet[i]);
-	printf("\n");
-	for(int i=0; i<8; i++) {
-		printf("sensor %i: %f Meters\n", i, adcdata2m(sensors[i]));
-	}
-}
 
 double adcdata2m(int adc){
 	double m;

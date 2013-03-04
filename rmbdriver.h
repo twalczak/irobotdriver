@@ -7,7 +7,8 @@
 -------------------------------------------------*/
 
 bool client_connected;
-
+double dvdt_global;
+double drdt_global;
 
 
 void mdelay(int d) {
@@ -26,13 +27,9 @@ public:
     static void* irobot_control_thread(void* arg);
 	
 private:
-    //int serialport_init(const char* serialport, int baud);
-    int serialport_writebyte( int fd, uint8_t b);
-    int serialport_writebyte( int fd, uint8_t b, uint8_t sonic);
     double adcdata2m(int adc);
     int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors);
     int parse_packet(uint8_t* packet,uint16_t* sensors);
-    uint8_t rmbOPEN;
 	virtual void Main();
 	virtual int MainSetup();
 	virtual void MainQuit();
