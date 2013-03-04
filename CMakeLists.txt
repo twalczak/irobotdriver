@@ -5,4 +5,4 @@ PROJECT (seniorDesign_rmbDriver)
 SET (CMAKE_MODULE_PATH "/usr/local/share/cmake/Modules")
 INCLUDE (UsePlayerPlugin)
 
-PLAYER_ADD_PLUGIN_DRIVER (rmbdriver SOURCES rmbdriver.cc)
+PLAYER_ADD_PLUGIN_DRIVER (rmbdriver SOURCES rmbdriver.cc serial.cc)

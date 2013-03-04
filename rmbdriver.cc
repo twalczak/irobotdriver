@@ -28,6 +28,7 @@
 #include <termios.h>  /* POSIX terminal control definitions */
 #include <sys/ioctl.h>
 #include <getopt.h>
+#include "serial.h"
 #if !defined (WIN32)
     #include <unistd.h>
 #endif
@@ -52,12 +53,19 @@ double adcdata2m(int adc);
 int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors);
 int parse_packet2(uint8_t* packet,uint16_t* sensors);
 
+void mdelay(int d) {
+    int i;
+    for(i=0, i<d, i++)
+        usleep(1000);
+}
+
 class rmbDriver : public ThreadedDriver {
 public:
 	rmbDriver(ConfigFile *cf, int section);
 	virtual int ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void* data);
 	static void* screen_thread(void* arg);
 	static void* nav_thread(void* arg);
+    static void* irobot_control_thread(void* arg);
 	
 private:
     int serialport_init(const char* serialport, int baud);
@@ -72,6 +80,9 @@ private:
 	virtual void MainQuit();
     int fd;
 	int testVar;
+    int irobot_port;
+    int nav_port;
+    int usonic_port;
 	player_devaddr_t positionID;
     player_devaddr_t sonarID;
     player_devaddr_t laserID;
@@ -90,6 +101,17 @@ void* rmbDriver::screen_thread(void* arg) {
 	while(1) {
 		serialport_read_until2(fdd,buffer, 'i', sensors);
 	}
+
+}
+
+void* rmbDriver::irobot_control_thread(void* arg) {
+    while(client_connected) {
+        if(!irobot_responding())
+            irobot_init();
+        irobot_setspeed(dvdt_global, drdt_global);
+        mdelay(100); // ms
+    }
+    pthread_exit(&irobot_control_thread_id);
 }
 
 void* rmbDriver::nav_thread(void* arg) {
@@ -207,6 +229,9 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
     }
 
 	this->testVar = cf->ReadInt(section, "testVar", 0); // Read variable in .cfg file
+    this->irobot_port = cf->ReadInt(section, "irobot_port", 0); // Read variable in .cfg file
+    this->nav_port = cf->ReadInt(section, "nav_port", 0); // Read variable in .cfg file
+    this->usonic_port = cf->ReadInt(section, "usonic_port", 0); // Read variable in .cfg file
 	return; 
 }
 
