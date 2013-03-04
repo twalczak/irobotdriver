@@ -27,7 +27,7 @@
 #define CREATE_AXLE_LENGTH         0.258
 
 int irobot_init(int* fd);
-int irobot_setspeed(double dvdt, double drdt);
+int irobot_setspeed(int* fd,double dvdt, double drdt);
 int irobot_responding(int* fd);
 
 #endif

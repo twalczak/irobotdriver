@@ -1,6 +1,29 @@
 #ifndef RMBDRIVER_H
 #define RMBDRIVER_H
+#include <iostream>
+#include <string.h>
+#include <libplayercore/playercore.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <math.h>
+#include <signal.h>
+#include <stdint.h>   /* Standard types */
+#include <fcntl.h>    /* File control definitions */
+#include <errno.h>    /* Error number definitions */
+#include <termios.h>  /* POSIX terminal control definitions */
+#include <sys/ioctl.h>
+#include <getopt.h>
+#if !defined (WIN32)
+    #include <unistd.h>
+#endif
 
+/* -------------------------------------------------------------- */
+#include "serial.h"
+#include "rmbdriver.h"
 
 /*-----------------------------------------------
 		GLOBAL VARIABLES
@@ -9,6 +32,7 @@
 bool client_connected;
 double dvdt_global;
 double drdt_global;
+int _irobot_count;
 char serial_port_str[13] = "/dev/ttyUSBx";
 
 

@@ -65,7 +65,16 @@ void* rmbDriver::irobot_control_thread(void* arg) {
     while(client_connected) {
         //if(!irobot_responding())
         //    irobot_init();
-        irobot_setspeed(dvdt_global, drdt_global);
+    	if(_irobot_count>5) {
+    		_irobot_count = 0;
+    		serialport_writebyte(iro_fd, 132); printf("Sending OP_CODE_FULL ");
+    		mdelay(60);
+    	}
+    	_irobot_count++;
+
+
+        irobot_setspeed(&iro_fd, dvdt_global, drdt_global);
+        printf("Sending dVdt: %f dRdt: %f\n",dvdt_global,drdt_global);
         mdelay(100); // ms
     }
     pthread_exit(&irobot_control_thread_id);
@@ -172,49 +181,59 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
     this->usonic_port = cf->ReadInt(section, "usonic_port", 0); // Read variable in .cfg file
 
     client_connected = false;
+    _irobot_count = 0;
 
     serial_port_str[11] = 0x30 + 5; /*Update port number*/
-    printf("Def. Port: %s\n", serial_port_str);
+    printf("iROBOT: %d\nLocal: %d\n", irobot_port, nav_port);
 	
     return; 
 }
 
 int rmbDriver::MainSetup() {
     int baudrate = B57600;  // iROBOT CREATE
-    iro_fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
+    serial_port_str[11] = 0x30 + irobot_port;
+    iro_fd = serialport_init((char*)serial_port_str, baudrate);
     if(iro_fd==-1) {
         PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
         return -1; 
     }
 
     baudrate = B115200; // LOCALIZATION SYSTEM
-    nav_fd = serialport_init((char*)"/dev/ttyUSB1", baudrate);
+    serial_port_str[11] = 0x30 + nav_port;
+    nav_fd = serialport_init((char*)serial_port_str, baudrate);
     if(nav_fd==-1) {
         PLAYER_ERROR("NAVIGATION PORT FAILED");
+        cout << "Localization Port ERROR!\n";
         return -1; 
     }
 
     baudrate = B9600;  // ULTRA-SONIC SENSORS
     uso_fd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
     if(uso_fd==-1) {
-        cout << "Open port: error\n";
-        return -1;
+        cout << "uSonic port: error\n";
+        //return -1;
     }
 
     client_connected = true;
+    _irobot_count = 0;
 
+    printf("START SCI: 128\n");
 	serialport_writebyte(iro_fd,128);   // TODO: Define opcodes in header
-	mdelay(100);
+	mdelay(500);
+	/*printf("START passive\n");
 	serialport_writebyte(iro_fd,130);
-	mdelay(100);
+	mdelay(500);
+	printf("START safe\n");
 	serialport_writebyte(iro_fd,131); 
-	mdelay(100);
+	mdelay(500);*/
+	printf("START full\n");
 	serialport_writebyte(iro_fd,132); 
-	
+	mdelay(500);
+	printf("ready\n");
 
-	
+	pthread_create(&irobot_control_thread_id, NULL, &rmbDriver::irobot_control_thread, (void*)NULL);
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
-    pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
+    //pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
 
 	//int flags;
 

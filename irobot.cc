@@ -1,4 +1,24 @@
 #include "irobot.h"
+#include <iostream>
+#include <string.h>
+#include <libplayercore/playercore.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <math.h>
+#include <signal.h>
+#include <stdint.h>   /* Standard types */
+#include <fcntl.h>    /* File control definitions */
+#include <errno.h>    /* Error number definitions */
+#include <termios.h>  /* POSIX terminal control definitions */
+#include <sys/ioctl.h>
+#include <getopt.h>
+#if !defined (WIN32)
+    #include <unistd.h>
+#endif
 
 int irobot_init(int* fd){
 
@@ -50,6 +70,8 @@ int irobot_setspeed(int* fd, double dvdt, double drdt){
         serialport_writebyte(*fd,vel_l);
         serialport_writebyte(*fd,deg_h);
         serialport_writebyte(*fd,deg_l);
+
+        printf(" PORT: %d %d %d %d\n", 137, vel_h, vel_l, deg_h, deg_l);
 
 
 
