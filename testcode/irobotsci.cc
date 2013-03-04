@@ -22,10 +22,8 @@
 using namespace std;
 
 int fd_global;
-FILE* fp_global;
 int serialport_init(const char* serialport, int baud);
 int serialport_read_until(int fd);
-int fpeek(FILE* stream);
 bool fexists(const char *filename);
 
 
@@ -37,21 +35,20 @@ void* screen_thread(void* arg) {
 
 
 int main(void) {
-
     pthread_t screen_thread_id;
     int flags;
-    int baudrate = B9600;  // default
+    int baudrate = B9600;
+
     fd_global = serialport_init((char*)"/dev/ttyUSB0", baudrate);
     if(fd_global==-1) {
         cout << "Open port: error\n";
         return -1;
     }
 
-    fp_global = fdopen(fd_global, "r");
     
         
-    if (-1 == (flags = fcntl(fd_global, F_GETFL, 0))) flags = 0;
-    fcntl(fd_global, F_SETFL, flags | O_NONBLOCK);
+    //if (-1 == (flags = fcntl(fd_global, F_GETFL, 0))) flags = 0;
+    //fcntl(fd_global, F_SETFL, flags | O_NONBLOCK);
         
     //pthread_create(&screen_thread_id, NULL, screen_thread, (void*)NULL);    
     
@@ -94,6 +91,10 @@ bool fexists(const char *filename)
 }
 
 
+
+/*---------------------------------------------------------------------------------------------
+                    SERIAL PORT CONTROL
+----------------------------------------------------------------------------------------------*/
 
 int serialport_init(const char* serialport, int baud)
 {

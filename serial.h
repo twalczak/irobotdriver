@@ -2,6 +2,6 @@
 #define SERIAL_H
 #include <iostream>
 
-int serial_test(void);
+int serialport_init(const char* serialport, int baud);
 
 #endif

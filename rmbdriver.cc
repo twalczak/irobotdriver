@@ -28,10 +28,13 @@
 #include <termios.h>  /* POSIX terminal control definitions */
 #include <sys/ioctl.h>
 #include <getopt.h>
-#include "serial.h"
 #if !defined (WIN32)
     #include <unistd.h>
 #endif
+
+/* -------------------------------------------------------------- */
+#include "serial.h"
+#include "rmbdriver.h"
 
 #define streamsize 20
 #define packetsize 40
@@ -53,48 +56,8 @@ double adcdata2m(int adc);
 int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors);
 int parse_packet2(uint8_t* packet,uint16_t* sensors);
 
-void mdelay(int d) {
-    int i;
-    for(i=0, i<d, i++)
-        usleep(1000);
-}
 
-class rmbDriver : public ThreadedDriver {
-public:
-	rmbDriver(ConfigFile *cf, int section);
-	virtual int ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void* data);
-	static void* screen_thread(void* arg);
-	static void* nav_thread(void* arg);
-    static void* irobot_control_thread(void* arg);
-	
-private:
-    int serialport_init(const char* serialport, int baud);
-    int serialport_writebyte( int fd, uint8_t b);
-    int serialport_writebyte( int fd, uint8_t b, uint8_t sonic);
-    double adcdata2m(int adc);
-    int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors);
-    int parse_packet(uint8_t* packet,uint16_t* sensors);
-    uint8_t rmbOPEN;
-	virtual void Main();
-	virtual int MainSetup();
-	virtual void MainQuit();
-    int fd;
-	int testVar;
-    int irobot_port;
-    int nav_port;
-    int usonic_port;
-	player_devaddr_t positionID;
-    player_devaddr_t sonarID;
-    player_devaddr_t laserID;
-};
 
-Driver* rmbDriver_Init(ConfigFile* cf, int section) {		// Return driver instance to Player
-	return( (Driver*)(new rmbDriver(cf, section)) );	
-}
-
-void rmbDriver_Register(DriverTable* table) {			// Register driver with Player
-	table->AddDriver("rmbdriver", rmbDriver_Init);
-}
 
 void* rmbDriver::screen_thread(void* arg) {
 	char* buffer;
@@ -185,60 +148,43 @@ void* rmbDriver::nav_thread(void* arg) {
     return 0;
 }
 
-
 rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, false, PLAYER_MSGQUEUE_DEFAULT_MAXLEN) {
-
-    if(cf->ReadDeviceAddr(&positionID, section, "provides", PLAYER_POSITION2D_CODE, -1, NULL) == 0)
-    {
-        // If the interface failed to correctly register
-        if(AddInterface(positionID) != 0)
-        {
-            // Post an error string and quit the constructor
+    
+    if(cf->ReadDeviceAddr(&positionID, section, "provides", PLAYER_POSITION2D_CODE, -1, NULL) == 0) {
+        if(AddInterface(positionID) != 0) {
             PLAYER_ERROR("Error adding position2d interface\n");
             SetError(-1);
             return;
         }
     }
     
-    if(cf->ReadDeviceAddr(&sonarID, section, "provides", PLAYER_SONAR_CODE, -1, NULL) == 0)
-    {
-        // If the interface failed to correctly register
-        if(AddInterface(sonarID) != 0)
-        {
-            // Post an error string and quit the constructor
+    if(cf->ReadDeviceAddr(&sonarID, section, "provides", PLAYER_SONAR_CODE, -1, NULL) == 0) {
+        if(AddInterface(sonarID) != 0) {
             PLAYER_ERROR("Error adding sonar interface\n");
             SetError(-1);
             return;
         }
-    } else {
-        cout << "No sonar\n";
-    }
+    } 
     
-    if(cf->ReadDeviceAddr(&laserID, section, "provides", PLAYER_LASER_CODE, -1, NULL) == 0)
-    {
-        // If the interface failed to correctly register
-        if(AddInterface(laserID) != 0)
-        {
-            // Post an error string and quit the constructor
+    if(cf->ReadDeviceAddr(&laserID, section, "provides", PLAYER_LASER_CODE, -1, NULL) == 0) {
+        if(AddInterface(laserID) != 0) {
             PLAYER_ERROR("Error adding laser interface\n");
             SetError(-1);
             return;
         }
-    } else {
-        cout << "No laser\n";
-    }
-
-	this->testVar = cf->ReadInt(section, "testVar", 0); // Read variable in .cfg file
+    } 
+    
     this->irobot_port = cf->ReadInt(section, "irobot_port", 0); // Read variable in .cfg file
     this->nav_port = cf->ReadInt(section, "nav_port", 0); // Read variable in .cfg file
     this->usonic_port = cf->ReadInt(section, "usonic_port", 0); // Read variable in .cfg file
-	return; 
+
+    client_connected = false;
+	
+    return; 
 }
 
 int rmbDriver::MainSetup() {
-	cout << "---> Main Setup Request <---\n";
-	
-    int baudrate = B57600;  // default
+    int baudrate = B57600;  // iROBOT CREATE
     fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
     if(fd==-1) {
         PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
@@ -247,53 +193,59 @@ int rmbDriver::MainSetup() {
     } else {
     	rmbOPEN = 1;
     }
-	serialport_writebyte(fd,128);   // TODO: Define opcodes in header
-	serialport_writebyte(fd,132); usleep(50*1000);
-	//serialport_writebyte(fd,131); usleep(50*1000);
-	//serialport_writebyte(fd,132);
-	
-	//START
-	pthread_t screen_thread_id;
-	
 
-
-	baudrate = B115200; //NAVIGATION
+    baudrate = B115200; // LOCALIZATION SYSTEM
     nav_fd = serialport_init((char*)"/dev/ttyUSB1", baudrate);
     if(nav_fd==-1) {
         PLAYER_ERROR("NAVIGATION PORT FAILED");
         return -1; 
     }
+
+    baudrate = B2400;  // ULTRA-SONIC SENSORS
+    fdd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
+    if(fdd==-1) {
+        cout << "Open port: error\n";
+        return -1;
+    }
+
+    client_connected = true;
+
+	serialport_writebyte(fd,128);   // TODO: Define opcodes in header
+	serialport_writebyte(fd,132); usleep(50*1000);
+	//serialport_writebyte(fd,131); usleep(50*1000);
+	//serialport_writebyte(fd,132);
+	
+
+	pthread_t screen_thread_id;
+	
+
+
+
     running = true;
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
 
 
-	int flags;
-	baudrate = B2400;  // default
-    	fdd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
-    	/*if(fdd==-1) {
-    		cout << "Open port: error\n";
-        	return -1;
-        }
+	//int flags;
+
         
         
- 	if (-1 == (flags = fcntl(fdd, F_GETFL, 0)))
+ 	/*if (-1 == (flags = fcntl(fdd, F_GETFL, 0)))
  	       flags = 0;
     	fcntl(fdd, F_SETFL, flags | O_NONBLOCK);
         
         pthread_create(&screen_thread_id, NULL, &rmbDriver::screen_thread, (void*)NULL);/**/
         
-         char* buffer;
+         //char* buffer;
 	//serialport_read_until(fdd,buffer, 'i', sensors);
 	//END
 	return 0;
 }
 
 void rmbDriver::MainQuit() {
-	cout << "---> Player Quit Request <---\n";
-	running = false;
-	//pthread_terminate(nav_thread_id);
-	close(fd);
     // TODO: Close gracefuly
+    client_connected = false; // <---- Indicates to all threads that we should quit and free memory
+	running = false; // DELETE THIS
+	close(fd);
 }
 
 int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void * data) {
@@ -435,7 +387,7 @@ void rmbDriver::Main() {
 	cout << "---> Main Request <---\n";
 	bool run = true;
 	while(run) {
-		pthread_testcancel();		// Check Player for cancel flag
+		pthread_testcancel();	// Check Player for cancel flag
 		ProcessMessages();		// Tell Player to invoke ProcessMessage if new messages exist
 		
 		player_pose2d_t current_pos;
@@ -475,13 +427,19 @@ void rmbDriver::Main() {
 	}
 }
 
-// Needed for older versions of Player server
-extern "C" {
-	int player_driver_init(DriverTable* table) {
-		rmbDriver_Register(table);
-		return 0;
-	}
-}
+
+
+
+
+
+
+
+
+/*-----------------------------------------------------------------
+        STUFF FOR CLEAN UP
+-------------------------------------------------------------------*/
+
+
 
 int rmbDriver::serialport_writebyte( int fd, uint8_t b)
 {
@@ -502,70 +460,6 @@ int rmbDriver::serialport_writebyte( int fd, uint8_t b, uint8_t sonic)
     if( n!=1)
         return -1;
     return 0;
-}
-
-int rmbDriver::serialport_init(const char* serialport, int baud)
-{
-    struct termios toptions;
-    int fd;
-    
-    // Open port
-    fd = open(serialport, O_RDWR | O_NOCTTY | O_NDELAY);
-    if (fd == -1)  {
-        perror("init_serialport: Unable to open port ");
-        return -1;
-    }
-    
-    // Read current termios settings
-    if (tcgetattr(fd, &toptions) < 0) {
-        perror("init_serialport: Couldn't get term attributes");
-        return -1;
-    }
-
-    // Set baud rate variable
-    speed_t brate = baud;
-    switch(baud) {
-    case 4800:   brate=B4800;   break;
-    case 9600:   brate=B9600;   break;
-#ifdef B14400
-    case 14400:  brate=B14400;  break;
-#endif
-    case 19200:  brate=B19200;  break;
-#ifdef B28800
-    case 28800:  brate=B28800;  break;
-#endif
-    case 38400:  brate=B38400;  break;
-    case 57600:  brate=B57600;  break;
-    case 115200: brate=B115200; break;
-    }
-    cfsetispeed(&toptions, brate);
-    cfsetospeed(&toptions, brate);
-
-    // Setup termios for 8N1
-    toptions.c_cflag &= ~PARENB;
-    toptions.c_cflag &= ~CSTOPB;
-    toptions.c_cflag &= ~CSIZE;
-    toptions.c_cflag |= CS8;
-
-    // Reccomended settings
-    toptions.c_cflag &= ~CRTSCTS;   // no flow control
-    toptions.c_cflag |= CREAD | CLOCAL;  // turn on read & ignore ctrl lines
-    toptions.c_iflag &= ~(IXON | IXOFF | IXANY); // turn off s/w flow ctrl
-    toptions.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // make raw
-    toptions.c_oflag &= ~OPOST; // make raw
-
-    // Setting when read() releases
-    // see: http://unixwiz.net/techtips/termios-vmin-vtime.html (Still a little confusing)
-    toptions.c_cc[VMIN]  = 0;
-    toptions.c_cc[VTIME] = 20;
-    
-    // Apply settings
-    if( tcsetattr(fd, TCSANOW, &toptions) < 0) {
-        perror("init_serialport: Couldn't set term attributes");
-        return -1;
-    }
-
-    return fd;
 }
 
 
