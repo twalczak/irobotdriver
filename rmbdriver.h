@@ -9,6 +9,7 @@
 bool client_connected;
 double dvdt_global;
 double drdt_global;
+char serial_port_str[13] = "/dev/ttyUSBx";
 
 
 void mdelay(int d) {
@@ -22,7 +23,7 @@ class rmbDriver : public ThreadedDriver {
 public:
 	rmbDriver(ConfigFile *cf, int section);
 	virtual int ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void* data);
-	static void* screen_thread(void* arg);
+	static void* usonic_thread(void* arg);
 	static void* nav_thread(void* arg);
     static void* irobot_control_thread(void* arg);
 	
@@ -33,7 +34,6 @@ private:
 	virtual void Main();
 	virtual int MainSetup();
 	virtual void MainQuit();
-    int fd;
     int irobot_port;
     int nav_port;
     int usonic_port;

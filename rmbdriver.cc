@@ -41,22 +41,24 @@
 using namespace std;
 char packetn[packetsize];
 uint8_t packet[4];
-int fdd, nav_fd;
+int iro_fd, uso_fd, nav_fd;
 uint8_t pstream[streamsize];
 uint16_t sensors[8];
 pthread_t nav_thread_id;
 pthread_t irobot_control_thread_id;
+pthread_t usonic_thread_id;
 double nav_pos[5];
 void draw_screen(uint8_t* packet,uint16_t* sensors);
 double adcdata2m(int adc);
 int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors);
 int parse_packet2(uint8_t* packet,uint16_t* sensors);
 
-void* rmbDriver::screen_thread(void* arg) {
+void* rmbDriver::usonic_thread(void* arg) {
 	char* buffer;
-	while(1) {
-		serialport_read_until2(fdd,buffer, 'i', sensors);
+	while(client_connected) {
+		serialport_read_until2(uso_fd,buffer, 'i', sensors);
 	}
+	pthread_exit(&usonic_thread_id);
 }
 
 void* rmbDriver::irobot_control_thread(void* arg) {
@@ -133,9 +135,8 @@ void* rmbDriver::nav_thread(void* arg) {
         count++;
 
         }
-        if(!client_connected) pthread_exit(&nav_thread_id);
-    } while(1);
-
+    } while(client_connected);
+    pthread_exit(&nav_thread_id);
 
     return 0;
 }
@@ -171,14 +172,17 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
     this->usonic_port = cf->ReadInt(section, "usonic_port", 0); // Read variable in .cfg file
 
     client_connected = false;
+
+    serial_port_str[11] = 0x30 + 5; /*Update port number*/
+    printf("Def. Port: %s\n", serial_port_str);
 	
     return; 
 }
 
 int rmbDriver::MainSetup() {
     int baudrate = B57600;  // iROBOT CREATE
-    fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
-    if(fd==-1) {
+    iro_fd = serialport_init((char*)"/dev/ttyUSB0", baudrate);
+    if(iro_fd==-1) {
         PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
         return -1; 
     }
@@ -191,27 +195,26 @@ int rmbDriver::MainSetup() {
     }
 
     baudrate = B9600;  // ULTRA-SONIC SENSORS
-    fdd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
-    if(fdd==-1) {
+    uso_fd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
+    if(uso_fd==-1) {
         cout << "Open port: error\n";
         return -1;
     }
 
     client_connected = true;
 
-	serialport_writebyte(fd,128);   // TODO: Define opcodes in header
+	serialport_writebyte(iro_fd,128);   // TODO: Define opcodes in header
 	mdelay(100);
-	serialport_writebyte(fd,130);
+	serialport_writebyte(iro_fd,130);
 	mdelay(100);
-	serialport_writebyte(fd,131); 
+	serialport_writebyte(iro_fd,131); 
 	mdelay(100);
-	serialport_writebyte(fd,132); 
+	serialport_writebyte(iro_fd,132); 
 	
 
-	pthread_t screen_thread_id;
 	
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
-
+    pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
 
 	//int flags;
 
@@ -232,7 +235,9 @@ int rmbDriver::MainSetup() {
 void rmbDriver::MainQuit() {
     // TODO: Close gracefuly
     client_connected = false; // <---- Indicates to all threads that we should quit and free memory
-	close(fd);
+	close(iro_fd);
+	close(uso_fd);
+	close(nav_fd);
 }
 
 int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void * data) {
