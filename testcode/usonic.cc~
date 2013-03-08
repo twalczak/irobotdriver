@@ -43,7 +43,7 @@ void* screen_thread(void* arg) {
 
 double adcdata2m(int adc){
 	double m;
-	m = adc*0.0025;	// ((adc/4095)/0.0049)/100
+	m = adc*0.00049837;	// ((adc/4095)/0.0049)/100
 					//adc/4095 -> volts    /0.0049 -> cm   /100 -> m
 	return m;
 }

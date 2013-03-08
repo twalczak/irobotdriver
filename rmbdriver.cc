@@ -43,7 +43,7 @@ char packetn[packetsize];
 uint8_t packet[4];
 int iro_fd, uso_fd, nav_fd;
 uint8_t pstream[streamsize];
-uint16_t sensors[8];
+uint16_t sensors[10];
 pthread_t nav_thread_id;
 pthread_t irobot_control_thread_id;
 pthread_t usonic_thread_id;
@@ -184,7 +184,7 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
     _irobot_count = 0;
 
     serial_port_str[11] = 0x30 + 5; /*Update port number*/
-    printf("iROBOT: %d\nLocal: %d\n", irobot_port, nav_port);
+    printf("iROBOT: %d\nLocal: %d\nuSonic: %d\n", irobot_port, nav_port,usonic_port);
 	
     return; 
 }
@@ -208,10 +208,11 @@ int rmbDriver::MainSetup() {
     }
 
     baudrate = B9600;  // ULTRA-SONIC SENSORS
-    uso_fd = serialport_init((char*)"/dev/ttyUSB2", baudrate);
+    serial_port_str[11] = 0x30 + usonic_port;
+    uso_fd = serialport_init((char*)serial_port_str, baudrate);
     if(uso_fd==-1) {
         cout << "uSonic port: error\n";
-        //return -1;
+        return -1;
     }
 
     client_connected = true;
@@ -233,7 +234,7 @@ int rmbDriver::MainSetup() {
 
 	pthread_create(&irobot_control_thread_id, NULL, &rmbDriver::irobot_control_thread, (void*)NULL);
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
-    //pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
+    pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
 
 	//int flags;
 
@@ -485,14 +486,14 @@ int parse_packet2(uint8_t* packet,uint16_t* sensors) {
 
 double adcdata2m(int adc){
 	double m;
-	m = adc*0.00049837;	// ((adc/4095)/0.0049)/100
+	m = adc*0.0025;	// ((adc/4095)/0.0049)/100
 					//adc/4095 -> volts    /0.0049 -> cm   /100 -> m
 	return m;
 }
 
 double rmbDriver::adcdata2m(int adc){
 	double m;
-	m = adc*0.00049837;	// ((adc/4095)/0.0049)/100
+	m = adc*0.0025;	// ((adc/4095)/0.0049)/100
 					//adc/4095 -> volts    /0.0049 -> cm   /100 -> m
 	return m;
 }
