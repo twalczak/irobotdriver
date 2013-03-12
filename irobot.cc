@@ -71,7 +71,7 @@ int irobot_setspeed(int* fd, double dvdt, double drdt){
         serialport_writebyte(*fd,deg_h);
         serialport_writebyte(*fd,deg_l);
 
-        printf(" PORT: %d %d %d %d\n", 137, vel_h, vel_l, deg_h, deg_l);
+        //printf(" PORT: %d %d %d %d\n", 137, vel_h, vel_l, deg_h, deg_l);
 
 
 

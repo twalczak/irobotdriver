@@ -47,11 +47,38 @@ uint16_t sensors[10];
 pthread_t nav_thread_id;
 pthread_t irobot_control_thread_id;
 pthread_t usonic_thread_id;
+pthread_t screen_thread_id;
 double nav_pos[5];
 void draw_screen(uint8_t* packet,uint16_t* sensors);
 double adcdata2m(int adc);
+int return_i(int _i);
+double adcdata2m_temp(int adc);
 int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors);
 int parse_packet2(uint8_t* packet,uint16_t* sensors);
+
+
+int return_i(int _i) {
+	     if(_i==7) return 9;
+	else if(_i==9) return 7;
+	return _i;
+}
+
+
+void* rmbDriver::screen_thread(void* arg) {
+	while(client_connected) {
+		printf("\033[1J Client Connected");
+		for(int i=0; i<8; i++) {
+			printf("sensor %i: %f Meters\n", i, adcdata2m_temp(sensors[i]));
+		}
+
+		printf("\nLOCAL:\n   x: %f\n   y: %f\n   a: %f\n",nav_pos[2],nav_pos[3],nav_pos[1]);
+		printf("\nSPEED:\n  dV: %f\n  dR: %f\n",dvdt_global,drdt_global);
+		mdelay(250);
+	}
+	printf("\033[1J Client Disconnected\n");
+	pthread_exit(&screen_thread_id);
+}
+
 
 void* rmbDriver::usonic_thread(void* arg) {
 	char* buffer;
@@ -67,16 +94,18 @@ void* rmbDriver::irobot_control_thread(void* arg) {
         //    irobot_init();
     	if(_irobot_count>5) {
     		_irobot_count = 0;
-    		serialport_writebyte(iro_fd, 132); printf("Sending OP_CODE_FULL ");
+    		serialport_writebyte(iro_fd, 132); //printf("Sending OP_CODE_FULL ");
     		mdelay(60);
     	}
     	_irobot_count++;
 
 
         irobot_setspeed(&iro_fd, dvdt_global, drdt_global);
-        printf("Sending dVdt: %f dRdt: %f\n",dvdt_global,drdt_global);
+        //printf("Sending dVdt: %f dRdt: %f\n",dvdt_global,drdt_global);
         mdelay(100); // ms
     }
+	printf("Exiting irobot thread...\n");fflush(stdout);
+	irobot_setspeed(&iro_fd,0.0,0.0);
     pthread_exit(&irobot_control_thread_id);
 }
 
@@ -118,7 +147,7 @@ void* rmbDriver::nav_thread(void* arg) {
 
 
         if(*b=='`') {
-            printf("packet: %s \n", packetn);
+            //printf("packet: %s \n", packetn);
             r_id_str = strtok (packetn,"~^|I");
             a_str = strtok (NULL,"~^|I");
             x_str = strtok (NULL,"~^|I");
@@ -132,9 +161,9 @@ void* rmbDriver::nav_thread(void* arg) {
                 nav_pos[3] = atof(y_str);
                 nav_pos[4] = atof(z_str);
 
-                printf("DATA: id: %f a: %f x: %f y: %f z: %f\n",id,a,x,y,z);
+                //printf("DATA: id: %f a: %f x: %f y: %f z: %f\n",id,a,x,y,z);
             } else {
-                printf("DATA: NULL\n");fflush(stdout);
+                //printf("DATA: NULL\n");fflush(stdout);
             }
 
             memset(packetn,0,sizeof(packetn));
@@ -235,7 +264,7 @@ int rmbDriver::MainSetup() {
 	pthread_create(&irobot_control_thread_id, NULL, &rmbDriver::irobot_control_thread, (void*)NULL);
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
     pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
-
+    pthread_create(&screen_thread_id, NULL, &rmbDriver::screen_thread, (void*)NULL);
 	//int flags;
 
         
@@ -254,7 +283,12 @@ int rmbDriver::MainSetup() {
 
 void rmbDriver::MainQuit() {
     // TODO: Close gracefuly
-    client_connected = false; // <---- Indicates to all threads that we should quit and free memory
+	client_connected = false;
+	mdelay(400);	
+	printf("Trying to stop...\n"); fflush(stdout);
+    	//client_connected = false; // <---- Indicates to all threads that we should quit and free memory
+	irobot_setspeed(&iro_fd,0.0,0.0);
+	mdelay(300);
 	close(iro_fd);
 	close(uso_fd);
 	close(nav_fd);
@@ -267,63 +301,90 @@ int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void
 		cout << "They want geometry D:\n";
 		
 		//START
-		player_pose3d_t poses[8];
-		uint32_t poses_count = 8;
-		poses[0].px = 0.15;
-		poses[0].py = 0.00;
+		/*
+	spose[0] [ 0.340 0.247 36 ]
+	spose[1] [ 0.130 0.399 72 ]
+	spose[2] [ -0.130 0.399 108 ]
+	spose[3] [ -0.340 .247 144 ]
+	spose[4] [ -0.420 0 180 ]
+	spose[5] [ -0.340 -0.247 216 ]
+	spose[6] [ -0.130 -0.399 252 ]
+	spose[7] [ 0.130 -0.399 288 ]
+    spose[8] [ 0.340 -0.247 324 ]
+    spose[9] [ 0.420 0 360 ]
+
+		*/
+		player_pose3d_t poses[10];
+		uint32_t poses_count = 10;
+		poses[0].px = 0.34;
+		poses[0].py = 0.247;
 		poses[0].pz = 0.05;
 		poses[0].proll = 0.0;
 		poses[0].ppitch = 0.0;
-		poses[0].pyaw = 0.0;
+		poses[0].pyaw = 0.628;
 		
-		poses[1].px = 0.15;
-		poses[1].py = 0.15;
+		poses[1].px = 0.13;
+		poses[1].py = 0.399;
 		poses[1].pz = 0.05;
 		poses[1].proll = 0.0;
 		poses[1].ppitch = 0.0;
-		poses[1].pyaw = 0.785;
+		poses[1].pyaw = 1.2566;
 		
-		poses[2].px = 0.0;
-		poses[2].py = 0.15;
+		poses[2].px = -0.13;
+		poses[2].py = 0.399;
 		poses[2].pz = 0.05;
 		poses[2].proll = 0.0;
 		poses[2].ppitch = 0.0;
-		poses[2].pyaw = 1.57;
+		poses[2].pyaw = 1.885;
 		
-		poses[3].px = -0.15;
-		poses[3].py = 0.15;
+		poses[3].px = -0.34;
+		poses[3].py = 0.247;
 		poses[3].pz = 0.05;
 		poses[3].proll = 0.0;
 		poses[3].ppitch = 0.0;
-		poses[3].pyaw = 2.36;
+		poses[3].pyaw = 2.513;
 		
-		poses[4].px = -0.15;
+		poses[4].px = -0.42;
 		poses[4].py = 0.0;
 		poses[4].pz = 0.05;
 		poses[4].proll = 0.0;
 		poses[4].ppitch = 0.0;
 		poses[4].pyaw = 3.14;
 		
-		poses[5].px = -0.15;
-		poses[5].py = -0.15;
+		poses[5].px = -0.34;
+		poses[5].py = -0.247;
 		poses[5].pz = 0.05;
 		poses[5].proll = 0.0;
 		poses[5].ppitch = 0.0;
-		poses[5].pyaw = 3.926;
+		poses[5].pyaw = 3.77;
 		
-		poses[6].px = 0.0;
-		poses[6].py = -0.15;
+		poses[6].px = -0.13;
+		poses[6].py = -0.399;
 		poses[6].pz = 0.05;
 		poses[6].proll = 0.0;
 		poses[6].ppitch = 0.0;
-		poses[6].pyaw = 4.712;
+		poses[6].pyaw = 4.398;
 		
-		poses[7].px = 0.15;
-		poses[7].py = -0.15;
+		poses[7].px = 0.13;
+		poses[7].py = -0.399;
 		poses[7].pz = 0.05;
 		poses[7].proll = 0.0;
 		poses[7].ppitch = 0.0;
-		poses[7].pyaw = 5.498;
+		poses[7].pyaw = 5.03;
+
+		poses[8].px = 0.34;
+		poses[8].py = -0.247;
+		poses[8].pz = 0.05;
+		poses[8].proll = 0.0;
+		poses[8].ppitch = 0.0;
+		poses[8].pyaw = 5.655;
+
+		poses[9].px = 0.420;
+		poses[9].py = 0.0;
+		poses[9].pz = 0.05;
+		poses[9].proll = 0.0;
+		poses[9].ppitch = 0.0;
+		poses[9].pyaw = 6.283;
 		
 		player_sonar_geom_t sg;
 		sg.poses_count = poses_count;
@@ -372,10 +433,10 @@ void rmbDriver::Main() {
 
 	    player_sonar_data_t irdata;
 	    memset(&irdata,0,sizeof(irdata));
-	    irdata.ranges_count = 8;
+	    irdata.ranges_count = 10;
 	    irdata.ranges = new float [irdata.ranges_count];
-	    for(int i=0; i<8; i++)
-	     	irdata.ranges[i] = (float)adcdata2m(sensors[i]);
+	    for(int i=0; i<10; i++)
+	     	irdata.ranges[i] = (float)adcdata2m(sensors[return_i(i)]);
 	    this->Publish(this->sonarID,PLAYER_MSGTYPE_DATA, PLAYER_SONAR_DATA_RANGES,(void*)&irdata);
 	    delete [] irdata.ranges;
 		    
@@ -485,6 +546,13 @@ int parse_packet2(uint8_t* packet,uint16_t* sensors) {
 
 
 double adcdata2m(int adc){
+	double m;
+	m = adc*0.0025;	// ((adc/4095)/0.0049)/100
+					//adc/4095 -> volts    /0.0049 -> cm   /100 -> m
+	return m;
+}
+
+double adcdata2m_temp(int adc){
 	double m;
 	m = adc*0.0025;	// ((adc/4095)/0.0049)/100
 					//adc/4095 -> volts    /0.0049 -> cm   /100 -> m
