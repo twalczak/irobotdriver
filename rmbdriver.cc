@@ -250,13 +250,7 @@ int rmbDriver::MainSetup() {
     printf("START SCI: 128\n");
 	serialport_writebyte(iro_fd,128);   // TODO: Define opcodes in header
 	mdelay(500);
-	/*printf("START passive\n");
-	serialport_writebyte(iro_fd,130);
-	mdelay(500);
-	printf("START safe\n");
-	serialport_writebyte(iro_fd,131); 
-	mdelay(500);*/
-	printf("START full\n");
+	printf("START FULL: 132\n");
 	serialport_writebyte(iro_fd,132); 
 	mdelay(500);
 	printf("ready\n");
@@ -265,19 +259,7 @@ int rmbDriver::MainSetup() {
     pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
     pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
     pthread_create(&screen_thread_id, NULL, &rmbDriver::screen_thread, (void*)NULL);
-	//int flags;
 
-        
-        
- 	/*if (-1 == (flags = fcntl(fdd, F_GETFL, 0)))
- 	       flags = 0;
-    	fcntl(fdd, F_SETFL, flags | O_NONBLOCK);
-        
-        pthread_create(&screen_thread_id, NULL, &rmbDriver::screen_thread, (void*)NULL);/**/
-        
-         //char* buffer;
-	//serialport_read_until(fdd,buffer, 'i', sensors);
-	//END
 	return 0;
 }
 
@@ -285,13 +267,13 @@ void rmbDriver::MainQuit() {
     // TODO: Close gracefuly
 	client_connected = false;
 	mdelay(400);	
-	printf("Trying to stop...\n"); fflush(stdout);
-    	//client_connected = false; // <---- Indicates to all threads that we should quit and free memory
-	irobot_setspeed(&iro_fd,0.0,0.0);
-	mdelay(300);
+	printf("Trying to stop... "); fflush(stdout);
+	irobot_setspeed(&iro_fd,0.0,0.0); mdelay(300);
+	printf("done\nClosing all ports... "); fflush(stdout);
 	close(iro_fd);
 	close(uso_fd);
 	close(nav_fd);
+	printf("done\n   [DRIVER QUIT]\n"); fflush(stdout);
 }
 
 int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void * data) {
@@ -300,20 +282,6 @@ int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void
 	if(Message::MatchMessage(hdr,PLAYER_MSGTYPE_REQ, PLAYER_SONAR_REQ_GET_GEOM, this->sonarID)) {
 		cout << "They want geometry D:\n";
 		
-		//START
-		/*
-	spose[0] [ 0.340 0.247 36 ]
-	spose[1] [ 0.130 0.399 72 ]
-	spose[2] [ -0.130 0.399 108 ]
-	spose[3] [ -0.340 .247 144 ]
-	spose[4] [ -0.420 0 180 ]
-	spose[5] [ -0.340 -0.247 216 ]
-	spose[6] [ -0.130 -0.399 252 ]
-	spose[7] [ 0.130 -0.399 288 ]
-    spose[8] [ 0.340 -0.247 324 ]
-    spose[9] [ 0.420 0 360 ]
-
-		*/
 		player_pose3d_t poses[10];
 		uint32_t poses_count = 10;
 		poses[0].px = 0.34;
