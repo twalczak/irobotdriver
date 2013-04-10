@@ -156,10 +156,10 @@ void* rmbDriver::nav_thread(void* arg) {
 
             if(!((r_id_str == NULL) || (a_str == NULL) || (x_str == NULL) || (y_str == NULL) || (z_str == NULL))) {
                 nav_pos[0] = atof(r_id_str);
-                nav_pos[1] = atof(a_str);
-                nav_pos[2] = atof(x_str);
-                nav_pos[3] = atof(y_str);
-                nav_pos[4] = atof(z_str);
+                nav_pos[1] = M_PI/180 * atof(a_str);
+                nav_pos[2] = 0.01 * atof(x_str);
+                nav_pos[3] = 0.01 * atof(y_str);
+                nav_pos[4] = 0.01 * atof(z_str);
 
                 //printf("DATA: id: %f a: %f x: %f y: %f z: %f\n",id,a,x,y,z);
             } else {
@@ -221,7 +221,8 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
 int rmbDriver::MainSetup() {
     int baudrate = B57600;  // iROBOT CREATE
     serial_port_str[11] = 0x30 + irobot_port;
-    iro_fd = serialport_init((char*)serial_port_str, baudrate);
+    //iro_fd = serialport_init((char*)serial_port_str, baudrate);
+    iro_fd = serialport_init("/dev/tty_irobot", baudrate);
     if(iro_fd==-1) {
         PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
         return -1; 
@@ -229,7 +230,8 @@ int rmbDriver::MainSetup() {
 
     baudrate = B115200; // LOCALIZATION SYSTEM
     serial_port_str[11] = 0x30 + nav_port;
-    nav_fd = serialport_init((char*)serial_port_str, baudrate);
+    //nav_fd = serialport_init((char*)serial_port_str, baudrate);
+    nav_fd = serialport_init("/dev/tty_nav", baudrate);
     if(nav_fd==-1) {
         PLAYER_ERROR("NAVIGATION PORT FAILED");
         cout << "Localization Port ERROR!\n";
@@ -238,7 +240,8 @@ int rmbDriver::MainSetup() {
 
     baudrate = B9600;  // ULTRA-SONIC SENSORS
     serial_port_str[11] = 0x30 + usonic_port;
-    uso_fd = serialport_init((char*)serial_port_str, baudrate);
+    //uso_fd = serialport_init((char*)serial_port_str, baudrate);
+    uso_fd = serialport_init("/dev/tty_usonic", baudrate);
     if(uso_fd==-1) {
         cout << "uSonic port: error\n";
         return -1;
