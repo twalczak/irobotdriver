@@ -28,7 +28,7 @@ using namespace std;
 int fdd;
 uint8_t packet[4];
 uint8_t pstream[streamsize];
-uint16_t sensors[8];
+uint16_t sensors[11];
 int serialport_init(const char* serialport, int baud);
 int serialport_read_until(int fd, char* buf, char until, uint16_t* sensors);
 int parse_packet(uint8_t* packet,uint16_t* sensors);
@@ -43,7 +43,7 @@ void* screen_thread(void* arg) {
 
 double adcdata2m(int adc){
 	double m;
-	m = adc*0.00049837;	// ((adc/4095)/0.0049)/100
+	m = adc*0.0025;	// ((adc/4095)/0.0049)/100
 					//adc/4095 -> volts    /0.0049 -> cm   /100 -> m
 	return m;
 }
@@ -119,7 +119,7 @@ int parse_packet(uint8_t* packet,uint16_t* sensors) {
 	uint16_t payload = (0xFF00 & (high_byte << 8)) | (0x00FF & low_byte);
 	
 	if(  packet[3] == 'T' &&
-	    (packet[2] >= '0' && packet[2] <= '9') &&
+	    (packet[2] >= '0' && packet[2] <= ':') &&
 	      (payload >=  0  &&  payload  <= 4095) ) {
 		sensors[packet[2]-0x30] = payload;
 	       	return 0;
@@ -134,7 +134,7 @@ void draw_screen(uint8_t* packet,uint16_t* sensors) {
 	for(int i=0; i<streamsize; i++)
 		printf("%x ", packet[i]);
 	printf("\n");
-	for(int i=0; i<8; i++) {
+	for(int i=0; i<11; i++) {
 		printf("sensor %i: %f Meters\n", i, adcdata2m(sensors[i]));
 	}
 }
