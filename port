@@ -1,0 +1,2 @@
+#!/bin/bash
+udevadm info -a -n /dev/ttyUSB$1 | grep '{serial}' | head -n1
