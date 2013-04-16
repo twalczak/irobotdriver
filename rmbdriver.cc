@@ -66,8 +66,8 @@ int return_i(int _i) {
 
 void* rmbDriver::screen_thread(void* arg) {
 	while(client_connected) {
-		printf("\033[1J Client Connected");
-		for(int i=0; i<8; i++) {
+		printf("\033[1J Client Connected\n");
+		for(int i=0; i<10; i++) {
 			printf("sensor %i: %f Meters\n", i, adcdata2m_temp(sensors[i]));
 		}
 
