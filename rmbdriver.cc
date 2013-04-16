@@ -382,7 +382,7 @@ int rmbDriver::ProcessMessage(QueuePointer &resp_queue, player_msghdr* hdr, void
 void rmbDriver::Main() {
 	cout << "---> Main Request <---\n";
 	bool run = true;
-	while(run) {
+	while(client_connected) {
 		pthread_testcancel();	// Check Player for cancel flag
 		ProcessMessages();		// Tell Player to invoke ProcessMessage if new messages exist
 		
