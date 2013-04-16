@@ -156,7 +156,7 @@ void* rmbDriver::nav_thread(void* arg) {
 
             if(!((r_id_str == NULL) || (a_str == NULL) || (x_str == NULL) || (y_str == NULL) || (z_str == NULL))) {
                 nav_pos[0] = atof(r_id_str);
-                nav_pos[1] = M_PI/180 * atof(a_str);
+                nav_pos[1] = -M_PI/180 * atof(a_str);
                 nav_pos[2] = 0.01 * atof(x_str);
                 nav_pos[3] = 0.01 * atof(y_str);
                 nav_pos[4] = 0.01 * atof(z_str);
