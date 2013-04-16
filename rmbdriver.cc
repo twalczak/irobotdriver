@@ -75,7 +75,7 @@ void* rmbDriver::screen_thread(void* arg) {
 		printf("\nSPEED:\n  dV: %f\n  dR: %f\n",dvdt_global,drdt_global);
 		mdelay(250);
 	}
-	printf("\033[1J Client Disconnected\n");
+	printf("\nClient Disconnected\n");
 	pthread_exit(&screen_thread_id);
 }
 
@@ -574,7 +574,7 @@ int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors)
 		parse_packet2(packet, sensors);
 
         }
-    } while(1);
+    } while(client_connected);
 
 
     return 0;
