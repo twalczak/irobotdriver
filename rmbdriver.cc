@@ -574,7 +574,7 @@ int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors)
 		parse_packet2(packet, sensors);
 
         }
-    } while(client_connected);
+    } while(client_connectedd);
 
 
     return 0;
