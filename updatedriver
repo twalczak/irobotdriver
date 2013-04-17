@@ -1,0 +1,7 @@
+#!/bin/bash
+sudo rm -r ~/local/irobotdriver
+git clone http://github.com/twalczak/irobotdriver.git
+mkdir irobotdriver/build
+cd irobotdriver/build
+cmake ..
+make
