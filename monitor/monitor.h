@@ -2,6 +2,26 @@
 #define MONITOR_H
 
 #include <QWidget>
+#include <iostream>
+#include <pthread.h>
+#include <unistd.h>
+
+
+class Robot  {
+public:
+	Robot(){
+	};
+	static void*  call_network_thread(void *arg) { return ((Robot*)arg)->network_thread(); }
+	void* network_thread(void);
+	void start(void){
+		pthread_t tid;
+		int result;
+		result = pthread_create(&tid, 0, Robot::call_network_thread, this);
+		if (result == 0)
+			pthread_detach(tid);
+	};
+};
+
 
 class monitor : public QWidget
 {
@@ -9,7 +29,8 @@ class monitor : public QWidget
 
 public:
 	monitor(QWidget *parent = 0);
-	
+	Robot robot1;
+
 protected:
 	void paintEvent(QPaintEvent *event);
 	void keyPressEvent(QKeyEvent *event);
@@ -18,7 +39,6 @@ protected:
 private slots:
 	void timerTimeout();
 
-	
 private:
 	//KEYPRESS
 	bool left, right, accel, shoot;
