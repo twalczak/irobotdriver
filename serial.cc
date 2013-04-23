@@ -73,17 +73,17 @@ int serialport_init(const char* serialport, int baud)
     toptions.c_cflag &= ~CSIZE;
     toptions.c_cflag |= CS8;
 
-    // Reccomended settings
+    // Reccomended settings "BSD RAW MODE" ??
     toptions.c_cflag &= ~CRTSCTS;   // no flow control
     toptions.c_cflag |= CREAD | CLOCAL;  // turn on read & ignore ctrl lines
     toptions.c_iflag &= ~(IXON | IXOFF | IXANY); // turn off s/w flow ctrl
     toptions.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // make raw
     toptions.c_oflag &= ~OPOST; // make raw
 
-    // Setting when read() releases
+    // Setting when read() releases ---> Something's wrong with this. read() is still non-blocking
     // see: http://unixwiz.net/techtips/termios-vmin-vtime.html (Still a little confusing)
-    toptions.c_cc[VMIN]  = 0;
-    toptions.c_cc[VTIME] = 20;
+    toptions.c_cc[VMIN]  = 0; // was 0
+    toptions.c_cc[VTIME] = 20; // was 20
     
     // Apply settings
     if( tcsetattr(fd, TCSANOW, &toptions) < 0) {

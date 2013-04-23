@@ -53,6 +53,7 @@ pthread_t usonic_thread_id;
 pthread_t screen_thread_id;
 pthread_t server_thread_id;
 double nav_pos[5];
+uint16_t voltage = 3620;
 void draw_screen(uint8_t* packet,uint16_t* sensors);
 double adcdata2m(int adc);
 int return_i(int _i);
@@ -188,6 +189,7 @@ void* rmbDriver::server_thread(void* arg) {
 				temp_out << nav_pos[1]  << "|";
 				temp_out << nav_pos[2]  << "|";
 				temp_out << nav_pos[3]  << "|";
+				temp_out << voltage  << "|";
 				memset(output, 0, sizeof(output));
 				memcpy(output,temp_out.str().c_str(),(temp_out.str().size() > (sizeof(output)-1) ? sizeof(output)-1 : temp_out.str().size()));
 				printf("output: %s\n", output);
@@ -408,7 +410,7 @@ int rmbDriver::MainSetup() {
 	pthread_create(&irobot_control_thread_id, NULL, &rmbDriver::irobot_control_thread, (void*)NULL);
 	pthread_create(&nav_thread_id, NULL, &rmbDriver::nav_thread, (void*)NULL);
 	pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
-	pthread_create(&screen_thread_id, NULL, &rmbDriver::screen_thread, (void*)NULL);
+	//pthread_create(&screen_thread_id, NULL, &rmbDriver::screen_thread, (void*)NULL);
 	pthread_create(&server_thread_id, NULL, &rmbDriver::server_thread, (void*)NULL);
 	
 	return 0;
@@ -568,86 +570,6 @@ void rmbDriver::Main() {
 
 
 
-
-
-
-/*-----------------------------------------------------------------
-        STUFF FOR CLEAN UP
--------------------------------------------------------------------*/
-
-
-
-/*int rmbDriver::serialport_writebyte( int fd, uint8_t b)
-{
-	int n = write(fd,&b,1);
-	if( n!=1)
-		return -1;
-	return 0;
-}*/
-
-
-
-
-/////////////////////////////////////
-/*int rmbDriver::serialport_read_until(int fd, char* buf, char until, uint16_t* sensors)
-{
-    char b[1];
-    uint8_t bb;
-    int state = 0;
-    int c=0;
-    uint16_t data=0;
-    uint8_t dh,dl;
-    int error = 0;
-    int noread = 0;
-    do { 
-        int n = read(fd, b, 1);  //Read byte at a time
-        if(n==-1) { 
-        	//printf("Global Error: %d ", errno); fflush(stdout);
-        	//perror(strerror(errno));
-         }
-        else if( n==0 ) {
-        	//No data available, yet... Hurry up Mike
-            	//usleep( 10 * 1000 ); // wait 10 msec try again
-            	continue;
-        } else if(n>0) {
-        	//Reset error counts
-		noread = 0;
-		error  = 0;
-		
-		//Shift in byte
-		for(int i=3; i>0;i--) packet[i]=packet[i-1];
-		*packet = 0xFF & *b;
-		
-		for(int i=(streamsize-1); i>0;i--) pstream[i]=pstream[i-1];
-		*pstream = 0xFF & *b;
-		
-		//Parse data packet
-		parse_packet(packet, sensors);
-
-        }
-    } while(1);
-
-
-    return 0;
-}
-
-int rmbDriver::parse_packet(uint8_t* packet,uint16_t* sensors) {
-	uint16_t high_byte = packet[0];
-	uint16_t  low_byte = packet[1];
-	uint16_t   payload = (0xFF00 & (high_byte << 8)) | (0x00FF & low_byte);
-	
-	if(  packet[3] == 'T' &&
-	    (packet[2] >= '0' && packet[2] <= '9') &&
-	      (payload >=  0  &&  payload  <= 4095) ) {
-		sensors[packet[2]-0x30] = payload;
-	       	return 0;
-	} else {
-		return -1;
-	}
-}*/
-
-
-
 int parse_packet2(uint8_t* packet,uint16_t* sensors) {
 	uint16_t high_byte = packet[0];
 	uint16_t  low_byte = packet[1];
@@ -729,17 +651,4 @@ int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors)
 
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
