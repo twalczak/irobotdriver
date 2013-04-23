@@ -16,6 +16,7 @@
 #include <termios.h>  /* POSIX terminal control definitions */
 #include <sys/ioctl.h>
 #include <getopt.h>
+#include <string>
 #if !defined (WIN32)
     #include <unistd.h>
 #endif
