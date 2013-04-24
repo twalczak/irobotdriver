@@ -1,7 +1,22 @@
 #!/bin/bash
-sudo rm -r ~/local/irobotdriver
+#sudo rm -r ~/local/irobotdriver
+#git clone http://github.com/twalczak/irobotdriver.git
+#mkdir irobotdriver/build
+#cd irobotdriver/build
+#cmake ..
+#make
+
+
+sudo rm -r ~/irobotdriver
+cd ~/
 git clone http://github.com/twalczak/irobotdriver.git
-mkdir irobotdriver/build
-cd irobotdriver/build
+cd irobotdriver
+mkdir build
+cd build
 cmake ..
 make
+while(true) do
+	sudo player ../test.cfg;
+	echo "PLAYER QUIT: RESTARTING... 2 seconds"
+	sleep 2;
+done;
