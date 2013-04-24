@@ -65,21 +65,19 @@ int parse_packet2(uint8_t* packet,uint16_t* sensors);
 int SocketFD;
 int ConnectFD;
 
-void signal_callback_handler(int signum) {
+void signal_callback_handler(int signum) { /* (unix signal catch) Attempt to close FDs when user sends SIGKILL signal */
     printf("\n\n    RECEIVED SIGINT: Attempting to close sockets D:\n\n");
     close(ConnectFD);
     close(SocketFD);
     printf("    BYE!!!\n\n");
     exit(signum);
-    
 }
 
-void sigpipe_callback(int signum) {
+void sigpipe_callback(int signum) {	/* To debug whenever I get a sigpipe error */
 	printf("  ---> SIGPIPE ERROR <---\n"); fflush(stdout);
 }
 
-
-int return_i(int _i) {
+int return_i(int _i) {	/* Due to sensor wire mixup */
 	     if(_i==7) return 9;
 	else if(_i==9) return 7;
 	return _i;
@@ -211,7 +209,7 @@ void* rmbDriver::server_thread(void* arg) {
 }
 
 
-void* rmbDriver::screen_thread(void* arg) {
+void* rmbDriver::screen_thread(void* arg) {	/* Write data to console */
 	while(client_connected) {
 		printf("\033[1J Client Connected\n");
 		for(int i=0; i<10; i++) {
@@ -227,7 +225,7 @@ void* rmbDriver::screen_thread(void* arg) {
 }
 
 
-void* rmbDriver::usonic_thread(void* arg) {
+void* rmbDriver::usonic_thread(void* arg) {	/* Start ultrasonic reader thread */
 	char* buffer;
 	while(client_connected) {
 		serialport_read_until2(uso_fd,buffer, 'i', sensors);
@@ -235,7 +233,7 @@ void* rmbDriver::usonic_thread(void* arg) {
 	pthread_exit(&usonic_thread_id);
 }
 
-void* rmbDriver::irobot_control_thread(void* arg) {
+void* rmbDriver::irobot_control_thread(void* arg) {	/* Send iRobot commands 10x p/ second */
     while(client_connected) {
         //if(!irobot_responding())
         //    irobot_init();
@@ -245,8 +243,6 @@ void* rmbDriver::irobot_control_thread(void* arg) {
     		mdelay(60);
     	}
     	_irobot_count++;
-
-
         irobot_setspeed(&iro_fd, dvdt_global, drdt_global);
         //printf("Sending dVdt: %f dRdt: %f\n",dvdt_global,drdt_global);
         mdelay(100); // ms
@@ -256,7 +252,7 @@ void* rmbDriver::irobot_control_thread(void* arg) {
     pthread_exit(&irobot_control_thread_id);
 }
 
-void* rmbDriver::nav_thread(void* arg) {
+void* rmbDriver::nav_thread(void* arg) {	/* Read and parse localization sensor */
     char b[1];
     int error = 0;
     int noread = 0;
@@ -287,13 +283,10 @@ void* rmbDriver::nav_thread(void* arg) {
 		noread = 0;
 		error  = 0;
 		//printf("TEST: %c\n",*b);
-		//Shift in byte
-
         if(*b=='~' || count>(packetsize-2)) {
             memset(packetn,0,sizeof(packetn));
             count=0;
         }
-
 
         if(*b=='`') {
             //printf("packet: %s \n", packetn);
@@ -368,38 +361,38 @@ rmbDriver::rmbDriver(ConfigFile* cf, int section) : ThreadedDriver(cf, section, 
 }
 
 int rmbDriver::MainSetup() {
-    int baudrate = B57600;  // iROBOT CREATE
-    serial_port_str[11] = 0x30 + irobot_port;
-    //iro_fd = serialport_init((char*)serial_port_str, baudrate);
-    iro_fd = serialport_init("/dev/tty_irobot", baudrate);
-    if(iro_fd==-1) {
-        PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
-        return -1; 
-    }
+	int baudrate = B57600;  // iROBOT CREATE
+	serial_port_str[11] = 0x30 + irobot_port;
+	//iro_fd = serialport_init((char*)serial_port_str, baudrate);
+	iro_fd = serialport_init("/dev/tty_irobot", baudrate);
+	if(iro_fd==-1) {
+		PLAYER_ERROR("Fatal Error: Serial port failed to initialize");
+		return -1; 
+	}
 
-    baudrate = B115200; // LOCALIZATION SYSTEM
-    serial_port_str[11] = 0x30 + nav_port;
-    //nav_fd = serialport_init((char*)serial_port_str, baudrate);
-    nav_fd = serialport_init("/dev/tty_nav", baudrate);
-    if(nav_fd==-1) {
-        PLAYER_ERROR("NAVIGATION PORT FAILED");
-        cout << "Localization Port ERROR!\n";
-        return -1; 
-    }
+	baudrate = B115200; // LOCALIZATION SYSTEM
+	serial_port_str[11] = 0x30 + nav_port;
+	//nav_fd = serialport_init((char*)serial_port_str, baudrate);
+	nav_fd = serialport_init("/dev/tty_nav", baudrate);
+	if(nav_fd==-1) {
+		PLAYER_ERROR("NAVIGATION PORT FAILED");
+		cout << "Localization Port ERROR!\n";
+		return -1; 
+	}
 
-    baudrate = B9600;  // ULTRA-SONIC SENSORS
-    serial_port_str[11] = 0x30 + usonic_port;
-    //uso_fd = serialport_init((char*)serial_port_str, baudrate);
-    uso_fd = serialport_init("/dev/tty_usonic", baudrate);
-    if(uso_fd==-1) {
-        cout << "uSonic port: error\n";
-        return -1;
-    }
+	baudrate = B9600;  // ULTRA-SONIC SENSORS
+	serial_port_str[11] = 0x30 + usonic_port;
+	//uso_fd = serialport_init((char*)serial_port_str, baudrate);
+	uso_fd = serialport_init("/dev/tty_usonic", baudrate);
+	if(uso_fd==-1) {
+		cout << "uSonic port: error\n";
+		return -1;
+	}
 
-    client_connected = true;
-    _irobot_count = 0;
+	client_connected = true;
+	_irobot_count = 0;
 
-    printf("START SCI: 128\n");
+	printf("START SCI: 128\n");
 	serialport_writebyte(iro_fd,128);   // TODO: Define opcodes in header
 	mdelay(500);
 	printf("START FULL: 132\n");
@@ -412,7 +405,7 @@ int rmbDriver::MainSetup() {
 	pthread_create(&usonic_thread_id, NULL, &rmbDriver::usonic_thread, (void*)NULL);
 	//pthread_create(&screen_thread_id, NULL, &rmbDriver::screen_thread, (void*)NULL);
 	pthread_create(&server_thread_id, NULL, &rmbDriver::server_thread, (void*)NULL);
-	
+
 	return 0;
 }
 
@@ -534,7 +527,7 @@ void rmbDriver::Main() {
 	bool run = true;
 	while(client_connected) {
 		pthread_testcancel();	// Check Player for cancel flag
-		ProcessMessages();		// Tell Player to invoke ProcessMessage if new messages exist
+		ProcessMessages();	// Tell Player to invoke ProcessMessage if new messages exist
 		
 		player_pose2d_t current_pos;
 		player_pose2d_t current_vel;
@@ -552,23 +545,23 @@ void rmbDriver::Main() {
 		message_data.stall = 0;
 		this->Publish(this->positionID, PLAYER_MSGTYPE_DATA, PLAYER_POSITION2D_DATA_STATE,(void*)&message_data);
 
-	    player_sonar_data_t irdata;
-	    memset(&irdata,0,sizeof(irdata));
-	    irdata.ranges_count = 10;
-	    irdata.ranges = new float [irdata.ranges_count];
-	    for(int i=0; i<10; i++)
-	     	irdata.ranges[i] = (float)adcdata2m(sensors[return_i(i)]);
-	    this->Publish(this->sonarID,PLAYER_MSGTYPE_DATA, PLAYER_SONAR_DATA_RANGES,(void*)&irdata);
-	    delete [] irdata.ranges;
+		player_sonar_data_t irdata;
+		memset(&irdata,0,sizeof(irdata));
+		irdata.ranges_count = 10;
+		irdata.ranges = new float [irdata.ranges_count];
+		for(int i=0; i<10; i++)
+			irdata.ranges[i] = (float)adcdata2m(sensors[return_i(i)]);
+		this->Publish(this->sonarID,PLAYER_MSGTYPE_DATA, PLAYER_SONAR_DATA_RANGES,(void*)&irdata);
+		delete [] irdata.ranges;
 		    
 		usleep(100);			// Sleep thread
 	}
 }
 
 
-
-
-
+/* ------------------------------------------------------------------------ */
+/*             EVERYTHING BELOW IS A MESS: CLEAN UP NEEDED                  */
+/* -----------------------------------------------------------------------  */
 
 int parse_packet2(uint8_t* packet,uint16_t* sensors) {
 	uint16_t high_byte = packet[0];
@@ -647,8 +640,6 @@ int serialport_read_until2(int fd, char* buf, char until, uint16_t* sensors)
 
         }
     } while(client_connected);
-
-
     return 0;
 }
 

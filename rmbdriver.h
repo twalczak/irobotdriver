@@ -33,7 +33,7 @@ bool client_connected;
 double dvdt_global;
 double drdt_global;
 int _irobot_count;
-char serial_port_str[13] = "/dev/ttyUSBx";
+char serial_port_str[13] = "/dev/ttyUSBx"; // <---- NOT NEEDED ANYMORE
 
 class rmbDriver : public ThreadedDriver {
 public:

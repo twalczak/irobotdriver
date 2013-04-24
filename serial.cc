@@ -87,7 +87,7 @@ int serialport_init(const char* serialport, int baud)
     
     // Apply settings
     if( tcsetattr(fd, TCSANOW, &toptions) < 0) {
-        perror("init_serialport: Couldn't set term attributes");
+        perror("init_serialport: Couldn't set term attributes :'(");
         return -1;
     }
 

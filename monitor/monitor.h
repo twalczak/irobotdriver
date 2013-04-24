@@ -12,8 +12,8 @@ class Robot {	// Robot data collector class
 public:
 	Robot() {
 		_v = 0;
-		_x = 0;
-		_y = 0;
+		_x = 300;
+		_y = 100;
 		_a = 0;
 	}
 	void start(void) {	// Start data collection
@@ -37,6 +37,8 @@ private:
 	uint16_t _v;
 	double   _x, _y, _a;
 };
+
+/* --------------------------------------------------------------------------------------  */
 
 class monitor : public QWidget {	// QTCore window class
 	Q_OBJECT
@@ -70,6 +72,8 @@ private:
 	int lives;
 	bool restart;
 	bool running;
+	int translate_x(double x);
+	int translate_y(double y);
 	
 };
 

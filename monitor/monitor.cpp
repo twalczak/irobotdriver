@@ -77,6 +77,7 @@ void monitor::timerTimeout()
 	monitor::points[3] = QPointF(X-(sin(theta+(5*M_PI)/4)*shipSize),Y-(cos(theta+(5*M_PI)/4)*shipSize));
 	
 	X = robot1.getx();
+	Y = robot1.gety();
 	
 	//REDRAW WINDOW
 	this->update();
@@ -100,6 +101,14 @@ void monitor::keyReleaseEvent(QKeyEvent *event)
 	if((event->key()==Qt::Key_Space)) shoot = false;
 }
 
+int monitor::translate_x(double x) {
+	return x;
+}
+
+int monitor::translate_y(double y) {
+	return y;
+}
+
 
 
 /*-----------------------------------------------------------------
@@ -115,8 +124,8 @@ void* Robot::network_thread(void) {
 }
 
 void Robot::parse(char* data) {
-	_x +=  1.5;
-	_y = -3.305;
+	_x += 1.5;
+	_y += 2;
 	_a =  1.520;
 	_v =  3760;
 }
