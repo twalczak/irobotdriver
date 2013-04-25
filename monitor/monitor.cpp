@@ -116,10 +116,11 @@ int monitor::translate_y(double y) {
 -----------------------------------------------------------------*/
 
 void* Robot::network_thread(void) {
-	while(1) { usleep(500000);
+	while(_run) { usleep(500000);
 		std::cout << "RUNNING\n";
 		parse((char*)"temp");
 	}
+	pthread_exit(&_tid);
 	return 0;
 }
 

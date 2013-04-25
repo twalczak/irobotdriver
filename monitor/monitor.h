@@ -15,10 +15,16 @@ public:
 		_x = 300;
 		_y = 100;
 		_a = 0;
+		_run = false;
 	}
 	void start(void) {	// Start data collection
-		pthread_t tid;
-		pthread_create(&tid, 0, Robot::call_network_thread, this);
+		_run = true;
+		pthread_create(&_tid, 0, Robot::call_network_thread, this);
+	}
+	
+	void stop(void) {
+		_run = false;
+		pthread_detach(_tid);
 	}
 	
 	uint16_t getv(void){ return _v; }	// Battery voltage
@@ -36,6 +42,8 @@ private:
 	
 	uint16_t _v;
 	double   _x, _y, _a;
+	bool _run;
+	pthread_t _tid;
 };
 
 /* --------------------------------------------------------------------------------------  */
