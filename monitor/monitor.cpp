@@ -27,7 +27,7 @@ monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint)
 void monitor::paintEvent(QPaintEvent *event)
 {	
 	QFont font("Monaco");
-	font.setPixelSize(fontSize);
+	font.setPixelSize(12);
 	font.setStyleStrategy(QFont::NoAntialias);
 	
 	QColor c(255,0,0,255);
