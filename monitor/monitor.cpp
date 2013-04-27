@@ -32,6 +32,8 @@ void monitor::paintEvent(QPaintEvent *event)
 	
 	QColor c(255,0,0,255);
 	
+	std::cout << (font.exactMatch() ? "true" : "false") << std::endl;
+	
 	QPainter p(this);
 	p.setFont(font);
 	p.setRenderHint(QPainter::Antialiasing, false);
@@ -117,7 +119,6 @@ int monitor::translate_y(double y) {
 
 void* Robot::network_thread(void) {
 	while(_run) { usleep(500000);
-		std::cout << "RUNNING\n";
 		parse((char*)"temp");
 	}
 	pthread_exit(&_tid);
