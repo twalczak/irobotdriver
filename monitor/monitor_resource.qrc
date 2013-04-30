@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/gui_img">
+        <file>test.png</file>
+        <file>lucon.ttf</file>
+    </qresource>
+</RCC>
