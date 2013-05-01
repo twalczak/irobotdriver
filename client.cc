@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     //cout << "n: ";
     //cout << flush;
 	while(!disconnect) {
-	    	readData(argv[1],&msg);
+	    readData(argv[1],&msg);
 		printf("reconnect...\n");fflush(stdout);
 		usleep(100*1000);
 	}

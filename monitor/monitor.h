@@ -7,20 +7,26 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
+#include <signal.h>
+#include <string>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <fcntl.h>
+#include <signal.h>
 
 #define CONSOLE_LINES 20
 #define STR_LEN 50
-
+#define MAXRISE 255
+#define NUMBER_OF_ROBOTS 2
 
 class Robot {	// Robot data collector class
 public:
-	Robot() {
-		_v = 0;
-		_x = 0;
-		_y = 0;
-		_a = 0;
-		_run = false;
-	}
+	Robot();
 	void start(void) {	// Start data collection
 		_run = true;
 		pthread_create(&_tid, 0, Robot::call_network_thread, this);
@@ -31,6 +37,7 @@ public:
 		pthread_detach(_tid);
 	}
 	
+	void set_addr(char* a);
 	uint16_t getv(void){ return _v; }	// Battery voltage
 	double   getx(void){ return _x; }	// Localization coordinates
 	double   gety(void){ return _y; }
@@ -43,10 +50,12 @@ private:
 	}
 	void* network_thread(void);	// Called by thread function on pthread creation
 	void  parse(char* data);
-	
+	static void sigint_call(int signum);
+	int readData( char* request, std::string* msg );
 	uint16_t _v;
 	double   _x, _y, _a;
 	bool _run;
+	char _addr[25];
 	pthread_t _tid;
 };
 
@@ -56,7 +65,7 @@ class monitor : public QWidget {	// QTCore window class
 	Q_OBJECT
 public:
 	monitor(QWidget *parent = 0);
-	Robot robot1;
+	Robot robot[NUMBER_OF_ROBOTS];
 
 protected:
 	void paintEvent(QPaintEvent *event);
@@ -86,6 +95,7 @@ private:
 	int recalculate_timer;
 	bool restart;
 	bool running;
+	bool disconnect;
 	int translate_x(double x);
 	int translate_y(double y);
 	QPoint am2p(double x, double y); // Arena: Meters-to-pixles

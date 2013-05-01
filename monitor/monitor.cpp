@@ -8,14 +8,15 @@
 #include <math.h>
 #include <stdio.h>
 #include <sstream>
-
+#include <string>
 #define fontSize 8
 #define shipSize 6
-#define NUMBER_OF_ROBOTS 2;
 
+bool disconnect;
 
-monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint)
-{
+using namespace std;
+
+monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint) {
 	timer = new QTimer(this);
 	timer->setInterval(100);
 	connect(timer, SIGNAL(timeout()), this, SLOT(timerTimeout()));
@@ -24,10 +25,18 @@ monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint)
 	Y=100;
 	for(int i=0; i<CONSOLE_LINES; i++)
 		memset((main_console)[i],0,sizeof(main_console[i]));
-	robot1.start();
-	int id = QFontDatabase::addApplicationFont(":/gui_img/lucon.ttf");
+	std::stringstream ipaddress;
+	for(int i=0; i<NUMBER_OF_ROBOTS; i++) {
+		ipaddress.str(std::string());
+		ipaddress << "192.168.1.10" << (i+1);
+		//robot[i].start();
+		robot[0].set_addr((char*)ipaddress.str().c_str());
+	}
+	/*int id = QFontDatabase::addApplicationFont(":/gui_img/consolas.ttf");
+	cout << "id: " << id << '\n';
     QString family = QFontDatabase::applicationFontFamilies(id).at(0);
-    QFont font(family);
+    QFont font("Consolasi");
+    /**/
     calculate_graphics();
     recalculate_timer = 0;
 }
@@ -38,7 +47,10 @@ void monitor::calculate_graphics(void) {
 		 | .  .  .
 		 | .  .  .
 	*/
-
+	int id = QFontDatabase::addApplicationFont(":/gui_img/consolas.ttf");
+	cout << "id: " << id << '\n';
+    QString family = QFontDatabase::applicationFontFamilies(id).at(0);
+    QFont font(family);
 	right_column_width = 250;
 	bottom_column_height = 100;
 
@@ -75,7 +87,9 @@ QPoint monitor::am2p(double x, double y) {
 void monitor::paintEvent(QPaintEvent *event) {
 	QPainter p(this);
 	p.setFont(font);
-	p.setRenderHint(QPainter::Antialiasing, false);
+	printf("FONT(): %s\n", font.exactMatch() ? "true" : "false");
+	p.setRenderHint(QPainter::Antialiasing, true);
+	QColor cb(222,250,255,255);
 	
 	//	Background Rectangle
 	p.setPen(QPen(Qt::black, 1));
@@ -83,15 +97,15 @@ void monitor::paintEvent(QPaintEvent *event) {
 	p.drawRect(0,0,width(),height());
 
 	// Title
-	font.setPixelSize(14);
-	p.setFont(font);
-	p.setPen(QPen(Qt::white, 1));
-	p.drawText(5, 18, "MONITOR");
+	//font.setPixelSize(14);
+	//p.setFont(font);
+	p.setPen(QPen(cb, 1));
+	p.drawText(5, 18, "monitor: SENSOR 0");
 	p.setPen(QPen(Qt::gray, 10));
 	p.drawLine(0,27,width(),27);
 
 	// Arena
-	p.setPen(QPen(Qt::white/*QColor(95, 192, 206, 255)*/, 1));
+	p.setPen(QPen(cb/*QColor(95, 192, 206, 255)*/, 1));
 	p.drawRect(aX,aY,aW,aH);
 	p.setPen(QPen(Qt::gray, 1, Qt::DashDotDotLine));
 	p.drawLine(y_axis_X,aY,y_axis_X,aY+aH);
@@ -105,7 +119,13 @@ void monitor::paintEvent(QPaintEvent *event) {
 
 	// Robots
 	p.setPen(QPen(Qt::white, 3, Qt::SolidLine));
-	p.drawEllipse(am2p(X,Y),robot_radius,robot_radius);
+	for(int i=0; i<NUMBER_OF_ROBOTS; i++) {
+		double r_xM = robot[i].getx();
+		double r_yM = robot[i].gety();
+		QPoint r_loc = am2p(r_xM,r_yM);
+		p.drawEllipse(r_loc,robot_radius,robot_radius);
+		p.drawText(r_loc.x()+robot_radius,r_loc.y()-robot_radius,"i");
+	}
 
 	// Draw main_console
 	font.setPixelSize(9);
@@ -128,16 +148,17 @@ void monitor::print_main(char* str) {
 	for(int i=1; i<CONSOLE_LINES; i++)
 		strncpy(main_console[i-1],main_console[i], STR_LEN-1);
 	strncpy(main_console[CONSOLE_LINES-1],str, STR_LEN-1);
-
-	for(int i=0; i<CONSOLE_LINES; i++)
-		printf("     %s\n", main_console[i]);
-	printf("DONE\n");
 }
 
 void monitor::timerTimeout() {
-	X = robot1.getx();
-	Y = robot1.gety();
-	print_main((char*)"CONNECT: -1");
+	X = robot[0].getx();
+	Y = robot[0].gety();
+
+	stringstream temp;
+	temp << "[DATA] x:" << X << " y: " << Y;
+
+
+	print_main((char*)temp.str().c_str());
 	//REDRAW WINDOW
 	this->update();
 }
@@ -160,23 +181,138 @@ void monitor::keyReleaseEvent(QKeyEvent *event) {
 
 
 
+
+
 /*-----------------------------------------------------------------
 			ROBOT MEMBER FUNCTIONS
 -----------------------------------------------------------------*/
+Robot::Robot() {
+		_v = 0;
+		_x = 0;
+		_y = 0;
+		_a = 0;
+		_run = false;
+		disconnect = false;
+		memset(_addr,0,25);
+    	signal(SIGPIPE,SIG_IGN);
+    	signal(SIGINT, Robot::sigint_call);
+	}
 
 void* Robot::network_thread(void) {
-	while(_run) { usleep(500000);
-		parse((char*)"temp");
+	disconnect = false;
+	std::string msg="";
+	while(!disconnect) {
+	    readData((char*)"all",&msg);
+		printf("reconnect...\n");fflush(stdout);
+		usleep(100*1000);
 	}
 	pthread_exit(&_tid);
 	return 0;
 }
 
-void Robot::parse(char* data) {
-	_x += 0.07;
-	_y += 0.01;
-	_a =  1.520;
-	_v =  3760;
+int Robot::readData( char* request, string* msg ) {
+    int _sockfd, portno, n;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+    char buffer[MAXRISE];
+    int count = 0;
+    *msg = (char*)"";
+    
+    //CREATE SOCKET DISCRIPTOR-------------------------------------------
+    portno = 8080;
+    _sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (_sockfd < 0)
+    {
+        //setErrorMsg((char*)"ERROR opening socket");
+        return -1;
+    }
+    
+    //SETUP ADDRESS INFORMATION-------------------------------------------
+    server = gethostbyname(_addr);
+    if ( server==NULL )
+    {
+        //setErrorMsg((char*)"ERROR, no such host");
+        return -1;
+    }
+    memset((char *) &serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    memcpy((char *)&serv_addr.sin_addr.s_addr, (char *)server->h_addr, server->h_length);
+    serv_addr.sin_port = htons(portno);
+    
+    //SET SOCKET AS NON_BLOCKING--------------------------------------------
+    fd_set fdset;
+    struct timeval tv;
+    int flags = fcntl(_sockfd, F_GETFL);
+    fcntl(_sockfd, F_SETFL, O_NONBLOCK);
+    FD_ZERO(&fdset);
+    FD_SET(_sockfd, &fdset);
+    tv.tv_sec = 1;
+    tv.tv_usec = 1000*1000;
+    n=-1;
+	int error_count = 0;
+	while((!n==0) && !disconnect && error_count < 5) {
+		n=connect(_sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
+		if(n<0) error_count++;
+		printf("CONNECT: %d\n",n);fflush(stdout);
+		usleep(10*1000);
+	}
+
+	FD_ZERO(&fdset);
+	FD_SET(_sockfd, &fdset);
+	stringstream temp;
+	memset(buffer,0,MAXRISE); n = 1;
+	char message[10];
+	int n_write = 0;
+	while((n_write > -1) && !disconnect){
+		int test = 0;
+		n=0;
+		while(n<1 && test<250) {
+			n = read(_sockfd,buffer,MAXRISE);
+			usleep(1*1000); test++;
+		}
+
+		// Set null character
+		buffer[n > MAXRISE ? MAXRISE : n] = '\0';
+		parse(buffer);
+		
+		n = write(_sockfd, (char*)"all" , 3);
+		if(n<0) perror("oh no");
+		n_write = n;
+	}
+	if(n_write==-1) printf(" ---> WRITE ERROR\n");
+   
+	printf("closing socket...\n"); fflush(stdout);
+	usleep(500*1000);
+    close(_sockfd);
+
+    return count;
 }
+
+void Robot::parse(char* data) {
+	// Assumes the order that data is arranged
+	// TODO: Make it more dynamic
+	char* x_str;
+	char* y_str;
+	char* a_str;
+	char* v_str;
+	printf("parse: %s\n", data);
+	x_str = strtok (data,"~^|Ie");
+	y_str = strtok (NULL,"~^|Ie");
+	a_str = strtok (NULL,"~^|Ie");
+	v_str = strtok (NULL,"~^|Ie");
+	if(!((a_str == NULL) || (x_str == NULL) || (y_str == NULL) || (v_str == NULL))) {
+		_a = atof(a_str);
+		_x = atof(x_str);
+		_y = atof(y_str);
+		_v = atoi(v_str);
+	}
+}
+
+void Robot::set_addr(char* a) {
+	strncpy(_addr,a, 25);
+	_addr[24] = 0;
+}
+
+void Robot::sigint_call(int signum){ disconnect = true; }
 
 

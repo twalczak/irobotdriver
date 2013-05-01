@@ -44,6 +44,9 @@ int main(void)
 
 	uint16_t vel = 234;
 	double   dvel = 4.5675;
+	double a = 0.97;
+	double x = 1.2;
+	double y = -0.502;
 	char output[100]; 
 	memset(output, 0, sizeof(output));
 	
@@ -134,8 +137,8 @@ int main(void)
 			}
 			else {
 				temp_out.str(std::string());
-				temp_out << dvel << "|";
-				temp_out << vel  << "|e";
+				temp_out << "I^|" << x << "|" << y << "|"<< a << "|";
+				temp_out << vel  << "|e\n";
 				memset(output, 0, sizeof(output));
 				memcpy(output,temp_out.str().c_str(),(temp_out.str().size() > (sizeof(output)-1) ? sizeof(output)-1 : temp_out.str().size()));
 				printf("output: %s\n", output);
