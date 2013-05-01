@@ -6,14 +6,18 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <string.h>
+
+#define CONSOLE_LINES 20
+#define STR_LEN 50
 
 
 class Robot {	// Robot data collector class
 public:
 	Robot() {
 		_v = 0;
-		_x = 300;
-		_y = 100;
+		_x = 0;
+		_y = 0;
 		_a = 0;
 		_run = false;
 	}
@@ -68,6 +72,7 @@ private:
 	QTimer *timer;
 	QTimer *checkScore;
 	QTimer *RESET;
+	QFont font;
 	bool resetScreen;
 	double X, Y;
 	double theta;
@@ -78,10 +83,26 @@ private:
 	int delayFire;
 	int countRocks;
 	int lives;
+	int recalculate_timer;
 	bool restart;
 	bool running;
 	int translate_x(double x);
 	int translate_y(double y);
+	QPoint am2p(double x, double y); // Arena: Meters-to-pixles
+	void calculate_graphics(void);
+	char main_console[CONSOLE_LINES][STR_LEN];
+	void print_main(char* str);
+
+	// Graphics variables
+	int aX, aY;
+	int aW, aH;
+	int x_axis_Y;
+	int y_axis_X;
+	int right_column_width;
+	int bottom_column_height;
+	int robot_radius;
+	int ppm;
+	int arena_center_X, arena_center_Y;
 	
 };
 

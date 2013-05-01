@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
 	QApplication app(argc, argv);
 	monitor *a = new monitor;
 	if(argc > 1)
-		if(!strcmp(argv[1],(char*)"max")) a->setWindowState(Qt::WindowMaximized);
+		if(!strcmp(argv[1],(char*)"max")) a->setWindowState(Qt::WindowFullScreen);
 	a->show();
 	return app.exec();
 }

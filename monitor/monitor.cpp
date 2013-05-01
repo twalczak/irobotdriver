@@ -11,6 +11,7 @@
 
 #define fontSize 8
 #define shipSize 6
+#define NUMBER_OF_ROBOTS 2;
 
 
 monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint)
@@ -21,95 +22,141 @@ monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint)
 	timer->start(); running=true;
 	X=100;
 	Y=100;
+	for(int i=0; i<CONSOLE_LINES; i++)
+		memset((main_console)[i],0,sizeof(main_console[i]));
 	robot1.start();
+	int id = QFontDatabase::addApplicationFont(":/gui_img/lucon.ttf");
+    QString family = QFontDatabase::applicationFontFamilies(id).at(0);
+    QFont font(family);
+    calculate_graphics();
+    recalculate_timer = 0;
 }
 
-void monitor::paintEvent(QPaintEvent *event)
-{	
-	QFont font("Monaco");
-	font.setPixelSize(12);
-	font.setStyleStrategy(QFont::NoAntialias);
-	
-	QColor c(255,0,0,255);
-	
-	std::cout << (font.exactMatch() ? "true" : "false") << std::endl;
-	
+void monitor::calculate_graphics(void) {
+	/*     (0,0)
+		-|-------
+		 | .  .  .
+		 | .  .  .
+	*/
+
+	right_column_width = 250;
+	bottom_column_height = 100;
+
+	// ARENA
+	aX = 5; aY = 35;
+	aW = (width() - right_column_width) - aX;
+	aH = (height() - bottom_column_height) - aY;
+	y_axis_X = (aW*0.5) + aX;
+	x_axis_Y = (aH*0.5) + aY;
+	arena_center_X = y_axis_X;
+	arena_center_Y = x_axis_Y;
+	ppm = 100; // pixels per meter
+
+	// ROBOTS
+	robot_radius = 5;
+
+}
+
+int monitor::translate_x(double x) {
+	return (arena_center_X+(x*ppm));
+}
+
+int monitor::translate_y(double y) {
+	return (arena_center_Y-(y*ppm));
+	// Y-axis is reversed ?
+}
+
+// Arena: Meters-to-pixles
+QPoint monitor::am2p(double x, double y) {
+	return QPoint(translate_x(x),translate_y(y));
+}
+
+// Paints graphics: Trigered by timer and system calls
+void monitor::paintEvent(QPaintEvent *event) {
 	QPainter p(this);
 	p.setFont(font);
 	p.setRenderHint(QPainter::Antialiasing, false);
 	
-	p.setPen(QPen(Qt::black, 1));				//BACKGROUND RECTANGLE
+	//	Background Rectangle
+	p.setPen(QPen(Qt::black, 1));
 	p.setBrush(QBrush(Qt::black, Qt::SolidPattern));
 	p.drawRect(0,0,width(),height());
-	
-	p.setPen(QPen(Qt::red, 1));						
-	//p.drawPolygon(points, 4);
-	//p.setPen(QPen(Qt::gray, 1, Qt::DashDotLine));	
-	
-	p.setPen(QPen(c, 1));
-	
-	p.drawRect(100,10,width()-110, height()-20);
-	p.setPen(QPen(Qt::white, 1));
-	p.drawRect(X,Y,10,10);		// Robot1
-	p.drawLine(X+10,Y-2,X+20,Y-15);
-	p.drawText(X+20+2,Y-15-2, "ROBOT1: OFFLINE");
-	std::stringstream str_temp;
-	str_temp << robot1.getx();
-	
-	p.drawText(3,fontSize, "ROBOT1: OFFLINE");
-	p.drawText(3,fontSize*2, "  192.168.1.101: No response...");
-	p.drawText(3,fontSize*3, str_temp.str().c_str());
 
-	
+	// Title
+	font.setPixelSize(14);
+	p.setFont(font);
 	p.setPen(QPen(Qt::white, 1));
-	
-	p.drawLine(((width()-10)*0.5)+50,10,((width()-10)*0.5)+50,height()-10);
-	
-	p.setPen(QPen(Qt::gray, 1, Qt::DashDotLine));						//DRAW ROCKS
-	p.setBrush(QBrush(Qt::black, Qt::SolidPattern));
-	
+	p.drawText(5, 18, "MONITOR");
+	p.setPen(QPen(Qt::gray, 10));
+	p.drawLine(0,27,width(),27);
+
+	// Arena
+	p.setPen(QPen(Qt::white/*QColor(95, 192, 206, 255)*/, 1));
+	p.drawRect(aX,aY,aW,aH);
+	p.setPen(QPen(Qt::gray, 1, Qt::DashDotDotLine));
+	p.drawLine(y_axis_X,aY,y_axis_X,aY+aH);
+	p.drawLine(aX,x_axis_Y,aX+aW,x_axis_Y);
+
+	// Arena Ticks
+	for (int i=-2; i<=2; i++) {
+		for (int j=-2; j<=2; j++) 
+			p.drawLine(translate_x(j),translate_y(i),translate_x(j),translate_y(i)+3);
+	}
+
+	// Robots
+	p.setPen(QPen(Qt::white, 3, Qt::SolidLine));
+	p.drawEllipse(am2p(X,Y),robot_radius,robot_radius);
+
+	// Draw main_console
+	font.setPixelSize(9);
+	font.setStyleStrategy(QFont::NoAntialias);
+	p.setPen(QPen(Qt::white, 1, Qt::SolidLine));
+	p.setFont(font);
+	for(int i=0; i<CONSOLE_LINES; i++)
+		p.drawText(aX+aW+5, (aY+5)+(i*11)+8, main_console[i]);
+
+	// Recalculate graphics variables
+	recalculate_timer++;
+	if(recalculate_timer > 10) {
+		recalculate_timer = 0;
+		calculate_graphics();
+	}
 }
 
-void monitor::timerTimeout()
-{
-	//SHAPE SHIP FIGURE
-	monitor::points[0] = QPointF(X,Y);
-	monitor::points[1] = QPointF(X-(sin(theta+(0.75*M_PI))*shipSize),Y-(cos(theta+(M_PI*0.75))*shipSize));
-	monitor::points[2] = QPointF(X-(sin(theta)*shipSize*2),Y-(cos(theta)*2*shipSize));
-	monitor::points[3] = QPointF(X-(sin(theta+(5*M_PI)/4)*shipSize),Y-(cos(theta+(5*M_PI)/4)*shipSize));
-	
+
+void monitor::print_main(char* str) {
+	for(int i=1; i<CONSOLE_LINES; i++)
+		strncpy(main_console[i-1],main_console[i], STR_LEN-1);
+	strncpy(main_console[CONSOLE_LINES-1],str, STR_LEN-1);
+
+	for(int i=0; i<CONSOLE_LINES; i++)
+		printf("     %s\n", main_console[i]);
+	printf("DONE\n");
+}
+
+void monitor::timerTimeout() {
 	X = robot1.getx();
 	Y = robot1.gety();
-	
+	print_main((char*)"CONNECT: -1");
 	//REDRAW WINDOW
 	this->update();
-
 }
 
 
-void monitor::keyPressEvent(QKeyEvent *event)
-{
+void monitor::keyPressEvent(QKeyEvent *event) {
 	if(event->key()==Qt::Key_Space) shoot = true;
 	if(event->key()==Qt::Key_Up) accel = true;
 	if(event->key()==Qt::Key_Left) left = true;
 	if(event->key()==Qt::Key_Right) right = true;
 }
 
-void monitor::keyReleaseEvent(QKeyEvent *event)
-{
-	if((event->key()==Qt::Key_Up)) accel = false;
-	if((event->key()==Qt::Key_Left)) left = false;
+void monitor::keyReleaseEvent(QKeyEvent *event) {
+	if((event->key()==Qt::Key_Up))    accel = false;
+	if((event->key()==Qt::Key_Left))  left = false;
 	if((event->key()==Qt::Key_Right)) right = false;
 	if((event->key()==Qt::Key_Space)) shoot = false;
 }
 
-int monitor::translate_x(double x) {
-	return x;
-}
-
-int monitor::translate_y(double y) {
-	return y;
-}
 
 
 
@@ -126,8 +173,8 @@ void* Robot::network_thread(void) {
 }
 
 void Robot::parse(char* data) {
-	_x += 1.5;
-	_y += 2;
+	_x += 0.07;
+	_y += 0.01;
 	_a =  1.520;
 	_v =  3760;
 }
