@@ -32,11 +32,10 @@ monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint) {
 		//robot[i].start();
 		robot[0].set_addr((char*)ipaddress.str().c_str());
 	}
-	/*int id = QFontDatabase::addApplicationFont(":/gui_img/consolas.ttf");
+	int id = QFontDatabase::addApplicationFont(":/gui_img/consolas.ttf");
 	cout << "id: " << id << '\n';
     QString family = QFontDatabase::applicationFontFamilies(id).at(0);
-    QFont font("Consolasi");
-    /**/
+    this->font = QFont(family);
     calculate_graphics();
     recalculate_timer = 0;
 }
@@ -47,10 +46,6 @@ void monitor::calculate_graphics(void) {
 		 | .  .  .
 		 | .  .  .
 	*/
-	int id = QFontDatabase::addApplicationFont(":/gui_img/consolas.ttf");
-	cout << "id: " << id << '\n';
-    QString family = QFontDatabase::applicationFontFamilies(id).at(0);
-    QFont font(family);
 	right_column_width = 250;
 	bottom_column_height = 100;
 
@@ -85,10 +80,11 @@ QPoint monitor::am2p(double x, double y) {
 
 // Paints graphics: Trigered by timer and system calls
 void monitor::paintEvent(QPaintEvent *event) {
+	//QFont font("Consolas");
 	QPainter p(this);
 	p.setFont(font);
 	printf("FONT(): %s\n", font.exactMatch() ? "true" : "false");
-	p.setRenderHint(QPainter::Antialiasing, true);
+	p.setRenderHint(QPainter::Antialiasing, false);
 	QColor cb(222,250,255,255);
 	
 	//	Background Rectangle
@@ -97,8 +93,8 @@ void monitor::paintEvent(QPaintEvent *event) {
 	p.drawRect(0,0,width(),height());
 
 	// Title
-	//font.setPixelSize(14);
-	//p.setFont(font);
+	font.setPixelSize(14);
+	p.setFont(font);
 	p.setPen(QPen(cb, 1));
 	p.drawText(5, 18, "monitor: SENSOR 0");
 	p.setPen(QPen(Qt::gray, 10));
@@ -129,7 +125,7 @@ void monitor::paintEvent(QPaintEvent *event) {
 
 	// Draw main_console
 	font.setPixelSize(9);
-	font.setStyleStrategy(QFont::NoAntialias);
+	//font.setStyleStrategy(QFont::NoAntialias);
 	p.setPen(QPen(Qt::white, 1, Qt::SolidLine));
 	p.setFont(font);
 	for(int i=0; i<CONSOLE_LINES; i++)
