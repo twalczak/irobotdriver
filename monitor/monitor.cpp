@@ -38,6 +38,9 @@ monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint) {
     this->font = QFont(family);
     calculate_graphics();
     recalculate_timer = 0;
+
+    grid_darker = QImage(":/gui_img/grid_darker.png");
+    background = QImage(":/gui_img/sprites/background.png");
 }
 
 void monitor::calculate_graphics(void) {
@@ -89,29 +92,34 @@ void monitor::paintEvent(QPaintEvent *event) {
 	
 	//	Background Rectangle
 	p.setPen(QPen(Qt::black, 1));
-	p.setBrush(QBrush(Qt::black, Qt::SolidPattern));
+	p.setBrush(QBrush(Qt::black));
 	p.drawRect(0,0,width(),height());
+	p.drawImage(0,0,background);
 
 	// Title
+	/*
 	font.setPixelSize(14);
 	p.setFont(font);
 	p.setPen(QPen(cb, 1));
 	p.drawText(5, 18, "monitor: SENSOR 0");
 	p.setPen(QPen(Qt::gray, 10));
-	p.drawLine(0,27,width(),27);
+	p.drawLine(0,27,width(),27);/**/
 
 	// Arena
-	p.setPen(QPen(cb/*QColor(95, 192, 206, 255)*/, 1));
+	/*
+	p.setPen(QPen(cb, 1));
 	p.drawRect(aX,aY,aW,aH);
 	p.setPen(QPen(Qt::gray, 1, Qt::DashDotDotLine));
 	p.drawLine(y_axis_X,aY,y_axis_X,aY+aH);
-	p.drawLine(aX,x_axis_Y,aX+aW,x_axis_Y);
+	p.drawLine(aX,x_axis_Y,aX+aW,x_axis_Y);/**/
 
 	// Arena Ticks
+	/*
 	for (int i=-2; i<=2; i++) {
 		for (int j=-2; j<=2; j++) 
 			p.drawLine(translate_x(j),translate_y(i),translate_x(j),translate_y(i)+3);
 	}
+	/**/
 
 	// Robots
 	p.setPen(QPen(Qt::white, 3, Qt::SolidLine));
@@ -124,12 +132,13 @@ void monitor::paintEvent(QPaintEvent *event) {
 	}
 
 	// Draw main_console
-	font.setPixelSize(9);
+	font.setPixelSize(10);
 	//font.setStyleStrategy(QFont::NoAntialias);
-	p.setPen(QPen(Qt::white, 1, Qt::SolidLine));
+	p.setPen(QPen(cb, 1, Qt::SolidLine));
 	p.setFont(font);
 	for(int i=0; i<CONSOLE_LINES; i++)
-		p.drawText(aX+aW+5, (aY+5)+(i*11)+8, main_console[i]);
+		p.drawText(937, 105+(i*11)+8, main_console[i]);
+
 
 	// Recalculate graphics variables
 	recalculate_timer++;

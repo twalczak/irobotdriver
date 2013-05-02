@@ -113,6 +113,9 @@ private:
 	int robot_radius;
 	int ppm;
 	int arena_center_X, arena_center_Y;
+
+	QImage grid_darker;
+	QImage background;
 	
 };
 

@@ -1,7 +1,9 @@
 <RCC>
     <qresource prefix="/gui_img">
         <file>test.png</file>
+        <file>grid_darker.png</file>
         <file>lucon.ttf</file>
-	<file>consolas.ttf</file>
+		<file>consolas.ttf</file>
+		<file>sprites/background.png</file>
     </qresource>
 </RCC>
