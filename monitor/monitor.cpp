@@ -29,9 +29,10 @@ monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint) {
 	for(int i=0; i<NUMBER_OF_ROBOTS; i++) {
 		ipaddress.str(std::string());
 		ipaddress << "192.168.1.10" << (i+1);
-		//robot[i].start();
+		robot[i].start(); //67.221.76.236
 		robot[0].set_addr((char*)ipaddress.str().c_str());
 	}
+	robot[0].set_addr((char*)"67.221.76.236");
 	int id = QFontDatabase::addApplicationFont(":/gui_img/consolas.ttf");
 	cout << "id: " << id << '\n';
     QString family = QFontDatabase::applicationFontFamilies(id).at(0);
@@ -41,6 +42,7 @@ monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint) {
 
     grid_darker = QImage(":/gui_img/grid_darker.png");
     background = QImage(":/gui_img/sprites/background.png");
+    robot_img = QImage(":/gui_img/sprites/robot.png");
 }
 
 void monitor::calculate_graphics(void) {
@@ -127,8 +129,13 @@ void monitor::paintEvent(QPaintEvent *event) {
 		double r_xM = robot[i].getx();
 		double r_yM = robot[i].gety();
 		QPoint r_loc = am2p(r_xM,r_yM);
-		p.drawEllipse(r_loc,robot_radius,robot_radius);
+		
+		p.save();
+		p.translate(r_loc);
+		p.rotate(45);
+		p.drawImage(QPoint(0,0),robot_img);
 		p.drawText(r_loc.x()+robot_radius,r_loc.y()-robot_radius,"i");
+		p.restore();
 	}
 
 	// Draw main_console
@@ -138,7 +145,6 @@ void monitor::paintEvent(QPaintEvent *event) {
 	p.setFont(font);
 	for(int i=0; i<CONSOLE_LINES; i++)
 		p.drawText(937, 105+(i*11)+8, main_console[i]);
-
 
 	// Recalculate graphics variables
 	recalculate_timer++;
@@ -158,13 +164,9 @@ void monitor::print_main(char* str) {
 void monitor::timerTimeout() {
 	X = robot[0].getx();
 	Y = robot[0].gety();
-
 	stringstream temp;
 	temp << "[DATA] x:" << X << " y: " << Y;
-
-
 	print_main((char*)temp.str().c_str());
-	//REDRAW WINDOW
 	this->update();
 }
 
@@ -198,6 +200,7 @@ Robot::Robot() {
 		_a = 0;
 		_run = false;
 		disconnect = false;
+		_connected = false;
 		memset(_addr,0,25);
     	signal(SIGPIPE,SIG_IGN);
     	signal(SIGINT, Robot::sigint_call);
@@ -207,6 +210,7 @@ void* Robot::network_thread(void) {
 	disconnect = false;
 	std::string msg="";
 	while(!disconnect) {
+		_connected = false;
 	    readData((char*)"all",&msg);
 		printf("reconnect...\n");fflush(stdout);
 		usleep(100*1000);
@@ -269,6 +273,7 @@ int Robot::readData( char* request, string* msg ) {
 	char message[10];
 	int n_write = 0;
 	while((n_write > -1) && !disconnect){
+		_connected = true;
 		int test = 0;
 		n=0;
 		while(n<1 && test<250) {
@@ -300,6 +305,7 @@ void Robot::parse(char* data) {
 	char* y_str;
 	char* a_str;
 	char* v_str;
+	usonic.setMeters(0,3.456);
 	printf("parse: %s\n", data);
 	x_str = strtok (data,"~^|Ie");
 	y_str = strtok (NULL,"~^|Ie");
@@ -318,6 +324,33 @@ void Robot::set_addr(char* a) {
 	_addr[24] = 0;
 }
 
-void Robot::sigint_call(int signum){ disconnect = true; }
+void Robot::sigint_call(int signum){ disconnect = true; exit(0); }	
+
+void* sensor_points::math_thread(void) {
+	double sa[10];
+	int i;
+	for(i=0; i<10; i++) {
+		sa[i] = (double)i*0.62831;
+	}
+	while(1) { usleep(1000);
+		for(i=0; i<10; i++) {
+			/*     RANGER      |-------- X --------------|  |------------ Y ------------| */
+			start[i] = QPoint( cos(sa[i])*_meters[i],        sin(sa[i])*_meters[i]        );
+			  end[i] = QPoint( cos(sa[i])*(_meters[i]+SDP),  sin(sa[i])*(_meters[i]+SDP)  );
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 

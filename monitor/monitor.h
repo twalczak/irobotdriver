@@ -22,7 +22,35 @@
 #define CONSOLE_LINES 20
 #define STR_LEN 50
 #define MAXRISE 255
-#define NUMBER_OF_ROBOTS 2
+#define NUMBER_OF_ROBOTS 6
+#define SDP 5
+
+/* ------------------------------------------------------------------------------------------------ */
+
+class sensor_points {
+public:
+	sensor_points() {
+		memset(_meters,0,sizeof(_meters));
+	}
+	static void* call_math_thread(void *arg) { 
+		return ((sensor_points*)arg)->math_thread();		// Connect thread to function with access to class
+	}
+	void* math_thread(void);
+	void setMeters(int i, double m) {
+		_meters[i] = m;
+	}
+	void start_math(void){
+		pthread_create(&_mid, 0, sensor_points::call_math_thread, this);
+	}
+	QPoint start[10];
+	QPoint end[10];
+private:
+	bool _run;
+	double _meters[10];
+	pthread_t _mid;
+};
+
+/* ------------------------------------------------------------------------------------------------ */
 
 class Robot {	// Robot data collector class
 public:
@@ -30,6 +58,7 @@ public:
 	void start(void) {	// Start data collection
 		_run = true;
 		pthread_create(&_tid, 0, Robot::call_network_thread, this);
+		usonic.start_math();
 	}
 	
 	void stop(void) {
@@ -42,6 +71,7 @@ public:
 	double   getx(void){ return _x; }	// Localization coordinates
 	double   gety(void){ return _y; }
 	double   geta(void){ return _a; }
+	bool _connected;
 	
 private:
 	   /* Thread caller functions */
@@ -57,9 +87,10 @@ private:
 	bool _run;
 	char _addr[25];
 	pthread_t _tid;
+	sensor_points usonic;
 };
 
-/* --------------------------------------------------------------------------------------  */
+/* ------------------------------------------------------------------------------------------------ */
 
 class monitor : public QWidget {	// QTCore window class
 	Q_OBJECT
@@ -116,6 +147,7 @@ private:
 
 	QImage grid_darker;
 	QImage background;
+	QImage robot_img;
 	
 };
 
