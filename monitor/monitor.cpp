@@ -9,15 +9,18 @@
 #include <stdio.h>
 #include <sstream>
 #include <string>
+
 #define fontSize 8
 #define shipSize 6
 
-bool disconnect;
-
 using namespace std;
 
+// ----- GLOBALS --------------
+bool disconnect;
+// ----------------------------
+
 monitor::monitor(QWidget *parent) : QWidget(parent, Qt::FramelessWindowHint) {
-	timer = new QTimer(this);
+        timer = new QTimer(this);
 	timer->setInterval(100);
 	connect(timer, SIGNAL(timeout()), this, SLOT(timerTimeout()));
 	timer->start(); running=true;
@@ -85,6 +88,7 @@ QPoint monitor::am2p(double x, double y) {
 
 // Paints graphics: Trigered by timer and system calls
 void monitor::paintEvent(QPaintEvent *event) {
+    event->accept();
 	//QFont font("Consolas");
 	QPainter p(this);
 	p.setFont(font);
@@ -105,23 +109,23 @@ void monitor::paintEvent(QPaintEvent *event) {
 	p.setPen(QPen(cb, 1));
 	p.drawText(5, 18, "monitor: SENSOR 0");
 	p.setPen(QPen(Qt::gray, 10));
-	p.drawLine(0,27,width(),27);/**/
+	p.drawLine(0,27,width(),27);
 
 	// Arena
-	/*
+	
 	p.setPen(QPen(cb, 1));
 	p.drawRect(aX,aY,aW,aH);
 	p.setPen(QPen(Qt::gray, 1, Qt::DashDotDotLine));
 	p.drawLine(y_axis_X,aY,y_axis_X,aY+aH);
-	p.drawLine(aX,x_axis_Y,aX+aW,x_axis_Y);/**/
+	p.drawLine(aX,x_axis_Y,aX+aW,x_axis_Y);
 
 	// Arena Ticks
-	/*
+	
 	for (int i=-2; i<=2; i++) {
 		for (int j=-2; j<=2; j++) 
 			p.drawLine(translate_x(j),translate_y(i),translate_x(j),translate_y(i)+3);
 	}
-	/**/
+	*/
 
 	// Robots
 	p.setPen(QPen(Qt::white, 3, Qt::SolidLine));
@@ -129,7 +133,7 @@ void monitor::paintEvent(QPaintEvent *event) {
 		double r_xM = robot[i].getx();
 		double r_yM = robot[i].gety();
 		QPoint r_loc = am2p(r_xM,r_yM);
-		
+
 		p.save();
 		p.translate(r_loc);
 		p.rotate(45);
@@ -161,6 +165,15 @@ void monitor::print_main(char* str) {
 	strncpy(main_console[CONSOLE_LINES-1],str, STR_LEN-1);
 }
 
+
+/* ----------------- DEMO --------------------- */
+
+void runDEMO() {
+	
+}
+
+
+/* -------------------------------------------- */
 void monitor::timerTimeout() {
 	X = robot[0].getx();
 	Y = robot[0].gety();
