@@ -53,6 +53,10 @@ void monitor::calculate_graphics(void) {
 		-|-------
 		 | .  .  .
 		 | .  .  .
+         *      
+         *      Calculate variables used in the paintEvent method.
+         *      Runs every 10 loops to prevent the math from taking up 
+         *      time during the paintEvent method.
 	*/
 	right_column_width = 250;
 	bottom_column_height = 100;
@@ -69,7 +73,6 @@ void monitor::calculate_graphics(void) {
 
 	// ROBOTS
 	robot_radius = 5;
-
 }
 
 int monitor::translate_x(double x) {
@@ -81,20 +84,24 @@ int monitor::translate_y(double y) {
 	// Y-axis is reversed ?
 }
 
-// Arena: Meters-to-pixles
+// Arena: Meters-to-pixels
+/* ----------  am2p(double x, double y) ---------------------------------
+ *      Takes in x and y coordinates from the start gazer localization
+ *      system in meters and translates it to the pixel coordinates in
+ *      the program to draw the robot in the 'Arena' area
+ */
 QPoint monitor::am2p(double x, double y) {
 	return QPoint(translate_x(x),translate_y(y));
 }
 
-// Paints graphics: Trigered by timer and system calls
+// Paints graphics: Triggered by timer and system calls
 void monitor::paintEvent(QPaintEvent *event) {
-    event->accept();
-	//QFont font("Consolas");
+        event->accept();
 	QPainter p(this);
 	p.setFont(font);
 	printf("FONT(): %s\n", font.exactMatch() ? "true" : "false");
 	p.setRenderHint(QPainter::Antialiasing, false);
-	QColor cb(222,250,255,255);
+        QColor cb(222,250,255,255);
 	
 	//	Background Rectangle
 	p.setPen(QPen(Qt::black, 1));
@@ -163,13 +170,6 @@ void monitor::print_main(char* str) {
 	for(int i=1; i<CONSOLE_LINES; i++)
 		strncpy(main_console[i-1],main_console[i], STR_LEN-1);
 	strncpy(main_console[CONSOLE_LINES-1],str, STR_LEN-1);
-}
-
-
-/* ----------------- DEMO --------------------- */
-
-void runDEMO() {
-	
 }
 
 
