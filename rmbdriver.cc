@@ -52,6 +52,7 @@ pthread_t irobot_control_thread_id;
 pthread_t usonic_thread_id;
 pthread_t screen_thread_id;
 pthread_t server_thread_id;
+pthread_t laser_thread_id;
 double nav_pos[5];
 uint16_t voltage = 3620;
 void draw_screen(uint8_t* packet,uint16_t* sensors);
@@ -232,6 +233,62 @@ void* rmbDriver::usonic_thread(void* arg) {	/* Start ultrasonic reader thread */
 	}
 	pthread_exit(&usonic_thread_id);
 }
+
+
+//BEGIN CLANCY
+void* rmbDriver::laser_thread(void* arg){
+	char* buffer;
+	while(client_connected){
+		//variables outside of continuous readings
+		char receiveddata[];
+		char command[];
+		int fd,startchecking;
+		int n=0;
+		fd = serialport_init((char*)"/dev/ttyUSB0",115200);
+		
+		command = "MS0000076801";
+		write(fd, command);
+		startchecking=1;
+		
+		#define lookingforecho 0
+		#define lookingforstatus 1
+		#define lookingfortime 2
+		#define data
+		
+		//variables inside continuous readings
+		
+		char buffer[1];
+		int state, n;
+		char datain[65], packet[3];
+		while(1){
+			usleep(100);
+			n = read(fd,buffer,1);
+			int numbytes = 0; //byte count. once 65, parse data for checksum/distance info
+			
+			
+			if(startchecking=1){
+				startchecking=0;
+				memset(datain,0,65);
+				state = lookingforecho;
+			}
+			//shift byte into datain[]
+			//runs from the top down and shifts everything to the left i.e. datain[65]=datain[64]
+			for(int i=strlen(datain);i>0;i--){
+				datain[i] = datain[i-1];
+				datain[0] = buffer[0];
+			}
+			
+			swich(state){
+				case lookingforecho:
+				// check to see if the command is echoed back
+				if(0==strcmp(datain, command));
+			}
+			
+		}
+		
+	}
+}
+//END CLANCY
 
 void* rmbDriver::irobot_control_thread(void* arg) {	/* Send iRobot commands 10x p/ second */
     while(client_connected) {
